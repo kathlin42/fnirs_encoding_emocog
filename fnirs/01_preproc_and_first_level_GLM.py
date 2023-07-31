@@ -70,7 +70,7 @@ for subj, subj_folder in enumerate(subj_list):
     raw, events = mne.concatenate_raws(raws=raw_list, preload=True, events_list=event_list)
     events = events[events[:, 0] > 0]
     raw, event_dict = helper_proc.correct_annotations(raw, events)
-    raw_haemo, channel, contrasts, dict_snr = helper_proc.individual_analysis(raw, event_dict, events, subj, save_directory)
+    raw_haemo, channel, contrasts, dict_snr = helper_proc.first_level_GLM_analysis(raw, event_dict, events, subj, save_directory)
     if subj == 2:
         raw_haemo.save(os.path.join(save_directory, 'exemplary_raw.fif'),
             overwrite=True)

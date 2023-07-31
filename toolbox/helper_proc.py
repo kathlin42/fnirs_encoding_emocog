@@ -166,7 +166,7 @@ def correct_annotations(raw, events):
     return raw, event_dict
 
 
-def individual_analysis(raw, event_dict, events, subj, save_directory):
+def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     # raw.plot(duration=300, n_channels=len(raw_concat.ch_names))
     conditions = list(event_dict.keys())
     if event_dict != config_analysis.event_dict:
