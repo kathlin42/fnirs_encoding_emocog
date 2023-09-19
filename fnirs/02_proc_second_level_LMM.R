@@ -19,7 +19,8 @@ remove_outliers <- function(x, na.rm = TRUE, ...) {
 }
 
 path = file.path('R:/MIKADO_83820414/!Ergebnisse/mikado_fnirs_2_bids')
-setting = "fNIRS_GLM_window_60.0"
+include_silence = "_include_silence"
+setting = paste("fNIRS_GLM_window_60.0", include_silence, sep="")
 
 ##########################################################################################################
 ##########################################################################################################

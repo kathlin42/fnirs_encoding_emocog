@@ -23,7 +23,8 @@ from toolbox import helper_proc
 # =============================================================================
 data_directory = os.path.join(config_analysis.project_directory, 'sourcedata')
 analysis_settings = 'fNIRS_GLM_window_'
-save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window))
+include_silence = '_include_silence'
+save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
 if not os.path.exists("{}".format(save_directory)):
     print('creating path for saving')
     os.makedirs("{}".format(save_directory))
@@ -62,14 +63,14 @@ for subj, subj_folder in enumerate(subj_list):
             continue
         fnirs_file = os.path.join(data_directory, 'fnirs', subj_folder, fnirs_path, fnirs_path + '.snirf')
         raw = mne.io.read_raw_snirf(fnirs_file, verbose=True).load_data()
-        events, num_trials = helper_proc.get_triggers(data_directory, subj_folder, fnirs_path, raw, subj)
+        events, num_trials = helper_proc.get_triggers(data_directory, subj_folder, fnirs_path, raw, subj, drop_silence = False)
 
         raw_list.append(raw)
         event_list.append(events)
 
     raw, events = mne.concatenate_raws(raws=raw_list, preload=True, events_list=event_list)
     events = events[events[:, 0] > 0]
-    raw, event_dict = helper_proc.correct_annotations(raw, events)
+    raw, event_dict = helper_proc.correct_annotations(raw, events, drop_silence = False)
     raw_haemo, channel, contrasts, dict_snr = helper_proc.first_level_GLM_analysis(raw, event_dict, events, subj, save_directory)
     if subj == 2:
         raw_haemo.save(os.path.join(save_directory, 'exemplary_raw.fif'),

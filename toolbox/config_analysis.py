@@ -15,6 +15,17 @@ event_dict = {'Rest': 10,
               'HighPos': 43,
               'HighNeg': 44}
 
+event_dict_incl_sil = {'Rest': 10,
+                  'Baseline': 21,
+                  'LowNeu': 32,
+                  'LowPos': 33,
+                  'LowNeg': 34,
+                  'LowSil' : 35,
+                  'HighNeu': 42,
+                  'HighPos': 43,
+                  'HighNeg': 44,
+                  'HighSil': 45}
+
 single_effects = [["LowNeg", "LowPos"],
                   ["LowNeu", "LowNeg"],
                   ["LowNeu", "LowPos"],

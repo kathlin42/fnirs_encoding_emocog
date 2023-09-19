@@ -76,7 +76,7 @@ def calc_contrasts_behav_data(df, subj_list, var_list):
 # =============================================================================
 # Extract fNIRS trigger
 # =============================================================================
-def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj):
+def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj, drop_silence = True):
     conditions = []
     samples = []
     df_mne = pd.DataFrame(columns=['Sample', '0', 'Condition'])
@@ -91,10 +91,13 @@ def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj):
     df_mne['0'] = 0
     df_mne['Condition'] = conditions
     #Delete Conditions with Silence 35 = LowSil, 45 = HighSil
-    df_mne = df_mne.loc[~df_mne['Condition'].isin([35, 45])]
+    if drop_silence:
+        df_mne = df_mne.loc[~df_mne['Condition'].isin([35, 45])]
+        events_from_config = config_analysis.event_dict
+    else:
+        events_from_config = config_analysis.event_dict_incl_sil
     events = np.array(df_mne.sort_values(by='Sample')).astype(int)
-
-    event_desc = {v: k for k, v in config_analysis.event_dict.items()}
+    event_desc = {v: k for k, v in events_from_config.items()}
     annotations = mne.annotations_from_events(events,
                                               raw.info['sfreq'],
                                               event_desc=event_desc)
@@ -105,7 +108,9 @@ def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj):
     df_events = df_events.loc[df_events['Subject'] == subj].reset_index(drop=True)
     df_events = df_events[['Timestamp_Aurora', 'StimuliName']]
     # Delete Conditions with Silence 35 = LowSil, 45 = HighSil
-    df_events = df_events.loc[~df_events['StimuliName'].isin(['LowSil', 'HighSil'])]
+    if drop_silence:
+        df_events = df_events.loc[~df_events['StimuliName'].isin(['LowSil', 'HighSil'])]
+
     num_trials = len(df_events)
 
     onset = raw.annotations.onset[0] * 1000
@@ -124,7 +129,7 @@ def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj):
     df_events = pd.merge_asof(df_events, df_time_samp, left_on='Timestamp_Aurora', right_on='Timestamp',
                               direction='nearest', tolerance=100)
 
-    df_events['Condition'] = df_events['StimuliName'].replace(config_analysis.event_dict)
+    df_events['Condition'] = df_events['StimuliName'].replace(events_from_config)
 
     df_mne = pd.DataFrame(columns=['Sample', '0', 'Condition'])
     df_mne['Sample'] = df_events['Sample']
@@ -135,8 +140,11 @@ def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj):
     return events, num_trials
 
 
-def correct_annotations(raw, events):
-    event_desc = {v: k for k, v in config_analysis.event_dict.items()}
+def correct_annotations(raw, events, drop_silence = True):
+    if drop_silence:
+        event_desc = {v: k for k, v in config_analysis.event_dict.items()}
+    else:
+        event_desc = {v: k for k, v in config_analysis.event_dict_incl_sil.items()}
     # Only use Events in File
     event_desc = {k: event_desc[k] for k in pd.DataFrame(events)[2]}
     event_dict = {v: int(k) for k, v in event_desc.items()}
@@ -169,9 +177,14 @@ def correct_annotations(raw, events):
 def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     # raw.plot(duration=300, n_channels=len(raw_concat.ch_names))
     conditions = list(event_dict.keys())
-    if event_dict != config_analysis.event_dict:
-        print(f'ERROR - Not all conditions recorded for subject: {subj}')
-        return
+    if 'silence' in save_directory:
+        if event_dict != config_analysis.event_dict_incl_sil:
+            print(f'ERROR - Not all conditions recorded for subject: {subj}')
+            return
+    else:
+        if event_dict != config_analysis.event_dict:
+            print(f'ERROR - Not all conditions recorded for subject: {subj}')
+            return
 
     conditions.remove('Rest')
     # Signal-to-Noise Ratio
@@ -304,8 +317,41 @@ def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     contrast_matrix = np.eye(design_matrix.shape[1])
     basic_conts = dict([(column, contrast_matrix[i]) for i, column in enumerate(design_matrix.columns)])
 
-    basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'])
-    basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'])
+
+    if 'silence' in save_directory:
+
+        #for silence analysis take only Sil Condition in Main Effects WL
+        basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'] + basic_conts['LowSil'])
+        basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'] + (basic_conts['HighSil']))
+
+        basic_conts['main_wl_task_low'] = (basic_conts['LowSil'])
+        basic_conts['main_wl_task_high'] = (basic_conts['HighSil'])
+
+        basic_conts['main_wl_dis_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg']) - (basic_conts['LowSil'])
+        basic_conts['main_wl_dis_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg']) - (basic_conts['HighSil'])
+
+        # Main Contrasts only Task Load
+        main_wlt_HighLow = basic_conts['main_wl_task_high'] - basic_conts['main_wl_task_low']
+        defined_contrasts.append(main_wlt_HighLow)
+        contrasts_names.append('main_wl_task_HighLow')
+
+        # Main Contrasts only Distraction Load
+        main_wld_HighLow = basic_conts['main_wl_dis_high'] - basic_conts['main_wl_dis_low']
+        defined_contrasts.append(main_wld_HighLow)
+        contrasts_names.append('main_wl_dis_HighLow')
+
+        #Correcting with Silence
+        basic_conts['LowNeu'] = (basic_conts['LowNeu'] - basic_conts['LowSil'])
+        basic_conts['LowNeg'] = (basic_conts['LowNeg'] - basic_conts['LowSil'])
+        basic_conts['LowPos'] = (basic_conts['LowPos'] - basic_conts['LowSil'])
+        basic_conts['HighNeu'] = (basic_conts['HighNeu'] - basic_conts['HighSil'])
+        basic_conts['HighNeg'] = (basic_conts['HighNeg'] - basic_conts['HighSil'])
+        basic_conts['HighPos'] = (basic_conts['HighPos'] - basic_conts['HighSil'])
+
+    else:
+        basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'])
+        basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'])
+
     basic_conts['main_emo_neu'] = (basic_conts['LowNeu'] + basic_conts['HighNeu'])
     basic_conts['main_emo_pos'] = (basic_conts['LowPos'] + basic_conts['HighPos'])
     basic_conts['main_emo_neg'] = (basic_conts['LowNeg'] + basic_conts['HighNeg'])

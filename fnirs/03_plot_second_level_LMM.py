@@ -27,8 +27,9 @@ os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = r'~qgis directory\apps\Qt5\plugins'
 os.environ['PATH'] += r';~qgis directory\apps\qgis\bin;~qgis directory\apps\Qt5\bin'
 
 analysis_settings = 'fNIRS_GLM_window_'
-data_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window))
-save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_encoding', analysis_settings + str(config_analysis.GLM_time_window))
+include_silence = '_include_silence'
+data_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
+save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_encoding', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
 
 if not os.path.exists("{}".format(save_directory)):
     print('creating path for saving')
@@ -65,7 +66,7 @@ plots = ['contrast_pos_HighLow', 'contrast_neu_HighLow', 'contrast_neg_HighLow',
          'contrast_inter_WL_NegPos', 'contrast_inter_WL_NeuNeg','contrast_inter_WL_NeuPos',
 
          'main_emo_NegPos', 'main_emo_NeuNeg', 'main_emo_NeuPos',
-         'main_wl_HighLow']
+         'main_wl_HighLow', 'main_wl_task_HighLow', 'main_wl_dis_HighLow']
 
 # Cortical Surface Projections for Contrasts
 for pick in ['hbo', 'hbr']:
