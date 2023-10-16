@@ -27,7 +27,8 @@ os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = r'~qgis directory\apps\Qt5\plugins'
 os.environ['PATH'] += r';~qgis directory\apps\qgis\bin;~qgis directory\apps\Qt5\bin'
 
 analysis_settings = 'fNIRS_GLM_window_'
-include_silence = '_include_silence'
+include_silence = '_correct_silence'#'_include_silence'
+only_silence = False
 data_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
 save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_encoding', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
 
@@ -40,7 +41,6 @@ cmap = mpl.cm.seismic
 # Load Data
 # =============================================================================
 conditions = ['LowNeu', 'LowPos', 'LowNeg', 'HighNeu', 'HighPos', 'HighNeg']
-df_cha = pd.read_csv(os.path.join(data_directory, 'nirs_glm_cha.csv'), sep=';', decimal=',')
 df_con = pd.read_csv(os.path.join(data_directory, 'nirs_glm_con.csv'), sep=';', decimal=',')
 exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(data_directory,  "exemplary_raw.fif")).load_data()
 exemplary_raw_montage = mne.io.read_raw_snirf(os.path.join(config_analysis.project_directory, 'sourcedata', 'fNIRS', 'VP02', '2021-06-01_001', "2021-06-01_001.snirf"), optode_frame='mri', verbose=True).load_data()
@@ -64,9 +64,21 @@ plots = ['contrast_pos_HighLow', 'contrast_neu_HighLow', 'contrast_neg_HighLow',
 
          'contrast_inter_EMO_NegPos', 'contrast_inter_EMO_NeuNeg','contrast_inter_EMO_NeuPos',
          'contrast_inter_WL_NegPos', 'contrast_inter_WL_NeuNeg','contrast_inter_WL_NeuPos',
+         'main_emo_NegPos', 'main_emo_NeuNeg', 'main_emo_NeuPos', 'main_wl_HighLow']
 
-         'main_emo_NegPos', 'main_emo_NeuNeg', 'main_emo_NeuPos',
-         'main_wl_HighLow', 'main_wl_task_HighLow', 'main_wl_dis_HighLow']
+if 'include_silence' in include_silence:
+    if only_silence:
+        plots = ['main_wl_HighLow']
+    plots = plots + ['main_wl_task_HighLow', 'main_wl_dis_HighLow',
+                     'main_emo_NegSil', 'main_emo_NeuSil', 'main_emo_PosSil',
+                     'contrast_low_NegSil', 'contrast_low_NeuSil','contrast_low_PosSil',
+                     'contrast_high_NegSil', 'contrast_high_NeuSil','contrast_high_PosSil',
+                     'contrast_inter_WL_NeuSil', 'contrast_inter_WL_NegSil', 'contrast_inter_WL_PosSil',
+                     'contrast_inter_EMO_PosSil', 'contrast_inter_EMO_NegSil', 'contrast_inter_EMO_NeuSil']
+elif 'correct_silence' in include_silence:
+    if only_silence:
+        plots = ['main_wl_HighLow']
+    plots = plots + ['main_wl_task_HighLow', 'main_wl_dis_HighLow']
 
 # Cortical Surface Projections for Contrasts
 for pick in ['hbo', 'hbr']:

@@ -23,7 +23,7 @@ from toolbox import helper_proc
 # =============================================================================
 data_directory = os.path.join(config_analysis.project_directory, 'sourcedata')
 analysis_settings = 'fNIRS_GLM_window_'
-include_silence = '_include_silence'
+include_silence = '_correct_silence'#'_include_silence'
 save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
 if not os.path.exists("{}".format(save_directory)):
     print('creating path for saving')
@@ -52,6 +52,7 @@ for subj, subj_folder in enumerate(subj_list):
     fnirs_folders.sort()
     raw_list = []
     event_list = []
+
 
     for i, fnirs_path in enumerate(fnirs_folders):
         # i = 0
@@ -91,8 +92,7 @@ print(f"Mean SNR_PRE_OD: {df_snr['SNR_PRE_OD'].mean()}")
 print(f"Mean SNR_PRE_RAW: {df_snr['SNR_PRE_RAW'].mean()}")
 print(f"Mean SNR_POST_OD: {df_snr['SNR_POST_OD'].mean()}")
 
-conditions = ['LowNeu', 'LowPos', 'LowNeg', 'HighNeu', 'HighPos', 'HighNeg']
-
+conditions = [key for key in list(event_dict.keys()) if key not in ['Baseline', 'Rest']]
 df_cha = df_cha.loc[(df_cha['Condition'].isin(conditions))]
 df_cha = df_cha[['ID', 'Condition', 'ch_name', 'Chroma', 'theta', 'se', 't', 'df', 'p_value', 'Source', 'Detector']]
 df_cha.to_csv(os.path.join(save_directory, 'nirs_glm_cha.csv'),

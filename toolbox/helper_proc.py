@@ -318,27 +318,11 @@ def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     basic_conts = dict([(column, contrast_matrix[i]) for i, column in enumerate(design_matrix.columns)])
 
 
-    if 'silence' in save_directory:
+    if 'correct_silence' in save_directory:
 
-        #for silence analysis take only Sil Condition in Main Effects WL
+        #All Conditions Workload
         basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'] + basic_conts['LowSil'])
         basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'] + (basic_conts['HighSil']))
-
-        basic_conts['main_wl_task_low'] = (basic_conts['LowSil'])
-        basic_conts['main_wl_task_high'] = (basic_conts['HighSil'])
-
-        basic_conts['main_wl_dis_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg']) - (basic_conts['LowSil'])
-        basic_conts['main_wl_dis_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg']) - (basic_conts['HighSil'])
-
-        # Main Contrasts only Task Load
-        main_wlt_HighLow = basic_conts['main_wl_task_high'] - basic_conts['main_wl_task_low']
-        defined_contrasts.append(main_wlt_HighLow)
-        contrasts_names.append('main_wl_task_HighLow')
-
-        # Main Contrasts only Distraction Load
-        main_wld_HighLow = basic_conts['main_wl_dis_high'] - basic_conts['main_wl_dis_low']
-        defined_contrasts.append(main_wld_HighLow)
-        contrasts_names.append('main_wl_dis_HighLow')
 
         #Correcting with Silence
         basic_conts['LowNeu'] = (basic_conts['LowNeu'] - basic_conts['LowSil'])
@@ -348,80 +332,180 @@ def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
         basic_conts['HighNeg'] = (basic_conts['HighNeg'] - basic_conts['HighSil'])
         basic_conts['HighPos'] = (basic_conts['HighPos'] - basic_conts['HighSil'])
 
+        # Main Contrasts only Task Load
+        basic_conts['main_wl_task_low'] = (basic_conts['LowSil'])
+        basic_conts['main_wl_task_high'] = (basic_conts['HighSil'])
+        main_wlt_HighLow = basic_conts['main_wl_task_high'] - basic_conts['main_wl_task_low']
+        defined_contrasts.append(main_wlt_HighLow)
+        contrasts_names.append('main_wl_task_HighLow')
+
+        # Main Contrasts only Distraction Load
+        basic_conts['main_wl_dis_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'])
+        basic_conts['main_wl_dis_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'])
+
+        main_wld_HighLow = basic_conts['main_wl_dis_high'] - basic_conts['main_wl_dis_low']
+        defined_contrasts.append(main_wld_HighLow)
+        contrasts_names.append('main_wl_dis_HighLow')
+
+
+    elif 'include_silence' in save_directory:
+
+        #for silence analysis take only Sil Condition in Main Effects WL
+        basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'] + basic_conts['LowSil'])
+        basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'] + (basic_conts['HighSil']))
+        #Correcting with Silence
+        basic_conts['main_emo_sil'] = (basic_conts['LowSil'] + basic_conts['HighSil'])
+        defined_contrasts.append(basic_conts['main_emo_sil'])
+        contrasts_names.append('main_emo_sil')
+        # Main Contrasts only Task Load
+        basic_conts['main_wl_task_low'] = (basic_conts['LowSil'])
+        basic_conts['main_wl_task_high'] = (basic_conts['HighSil'])
+        main_wlt_HighLow = basic_conts['main_wl_task_high'] - basic_conts['main_wl_task_low']
+        defined_contrasts.append(main_wlt_HighLow)
+        contrasts_names.append('main_wl_task_HighLow')
+
+        # Main Contrasts only Distraction Load
+        basic_conts['main_wl_dis_low'] = ((basic_conts['LowNeu'] - basic_conts['LowSil']) + (basic_conts['LowPos'] - basic_conts['LowSil']) + (basic_conts['LowNeg'] - basic_conts['LowSil']))
+        basic_conts['main_wl_dis_high'] = ((basic_conts['HighNeu'] - basic_conts['HighSil']) + (basic_conts['HighPos'] - basic_conts['HighSil']) + (basic_conts['HighNeg'] - basic_conts['HighSil']))
+        main_wld_HighLow = basic_conts['main_wl_dis_high'] - basic_conts['main_wl_dis_low']
+        defined_contrasts.append(main_wld_HighLow)
+        contrasts_names.append('main_wl_dis_HighLow')
+
     else:
         basic_conts['main_wl_low'] = (basic_conts['LowNeu'] + basic_conts['LowPos'] + basic_conts['LowNeg'])
         basic_conts['main_wl_high'] = (basic_conts['HighNeu'] + basic_conts['HighPos'] + basic_conts['HighNeg'])
 
+    # Main Contrasts
     basic_conts['main_emo_neu'] = (basic_conts['LowNeu'] + basic_conts['HighNeu'])
     basic_conts['main_emo_pos'] = (basic_conts['LowPos'] + basic_conts['HighPos'])
     basic_conts['main_emo_neg'] = (basic_conts['LowNeg'] + basic_conts['HighNeg'])
 
-    # Main Contrasts
     main_wl_HighLow = basic_conts['main_wl_high'] - basic_conts['main_wl_low']
     defined_contrasts.append(main_wl_HighLow)
     contrasts_names.append('main_wl_HighLow')
+    if 'include_silence' not in save_directory:
+        main_emo_NegPos = basic_conts['main_emo_neg'] - basic_conts['main_emo_pos']
+        defined_contrasts.append(main_emo_NegPos)
+        contrasts_names.append('main_emo_NegPos')
+        main_emo_NeuPos =  basic_conts['main_emo_neu'] - basic_conts['main_emo_pos']
+        defined_contrasts.append(main_emo_NeuPos)
+        contrasts_names.append('main_emo_NeuPos')
+        main_emo_NeuNeg = basic_conts['main_emo_neu'] - basic_conts['main_emo_neg']
+        defined_contrasts.append(main_emo_NeuNeg)
+        contrasts_names.append('main_emo_NeuNeg')
 
-    main_emo_NegPos = basic_conts['main_emo_neg'] - basic_conts['main_emo_pos']
-    defined_contrasts.append(main_emo_NegPos)
-    contrasts_names.append('main_emo_NegPos')
-    main_emo_NeuPos =  basic_conts['main_emo_neu'] - basic_conts['main_emo_pos']
-    defined_contrasts.append(main_emo_NeuPos)
-    contrasts_names.append('main_emo_NeuPos')
-    main_emo_NeuNeg = basic_conts['main_emo_neu'] - basic_conts['main_emo_neg']
-    defined_contrasts.append(main_emo_NeuNeg)
-    contrasts_names.append('main_emo_NeuNeg')
+        # Contrasts
+        contrast_low_NegPos = basic_conts['LowNeg'] - basic_conts['LowPos']
+        defined_contrasts.append(contrast_low_NegPos)
+        contrasts_names.append('contrast_low_NegPos')
+        contrast_low_NeuPos = basic_conts['LowNeu'] - basic_conts['LowPos']
+        defined_contrasts.append(contrast_low_NeuPos)
+        contrasts_names.append('contrast_low_NeuPos')
+        contrast_low_NeuNeg = basic_conts['LowNeu'] - basic_conts['LowNeg']
+        defined_contrasts.append(contrast_low_NeuNeg)
+        contrasts_names.append('contrast_low_NeuNeg')
 
-    # Contrasts
-    contrast_low_NegPos = basic_conts['LowNeg'] - basic_conts['LowPos']
-    defined_contrasts.append(contrast_low_NegPos)
-    contrasts_names.append('contrast_low_NegPos')
-    contrast_low_NeuPos = basic_conts['LowNeu'] - basic_conts['LowPos']
-    defined_contrasts.append(contrast_low_NeuPos)
-    contrasts_names.append('contrast_low_NeuPos')
-    contrast_low_NeuNeg = basic_conts['LowNeu'] - basic_conts['LowNeg']
-    defined_contrasts.append(contrast_low_NeuNeg)
-    contrasts_names.append('contrast_low_NeuNeg')
+        contrast_high_NegPos = basic_conts['HighNeg'] - basic_conts['HighPos']
+        defined_contrasts.append(contrast_high_NegPos)
+        contrasts_names.append('contrast_high_NegPos')
+        contrast_high_NeuPos = basic_conts['HighNeu'] - basic_conts['HighPos']
+        defined_contrasts.append(contrast_high_NeuPos)
+        contrasts_names.append('contrast_high_NeuPos')
+        contrast_high_NeuNeg = basic_conts['HighNeu'] - basic_conts['HighNeg']
+        defined_contrasts.append(contrast_high_NeuNeg)
+        contrasts_names.append('contrast_high_NeuNeg')
 
-    contrast_high_NegPos = basic_conts['HighNeg'] - basic_conts['HighPos']
-    defined_contrasts.append(contrast_high_NegPos)
-    contrasts_names.append('contrast_high_NegPos')
-    contrast_high_NeuPos = basic_conts['HighNeu'] - basic_conts['HighPos']
-    defined_contrasts.append(contrast_high_NeuPos)
-    contrasts_names.append('contrast_high_NeuPos')
-    contrast_high_NeuNeg = basic_conts['HighNeu'] - basic_conts['HighNeg']
-    defined_contrasts.append(contrast_high_NeuNeg)
-    contrasts_names.append('contrast_high_NeuNeg')
+        contrast_pos_HighLow = basic_conts['HighPos'] - basic_conts['LowPos']
+        defined_contrasts.append(contrast_pos_HighLow)
+        contrasts_names.append('contrast_pos_HighLow')
+        contrast_neu_HighLow = basic_conts['HighNeu'] - basic_conts['LowNeu']
+        defined_contrasts.append(contrast_neu_HighLow)
+        contrasts_names.append('contrast_neu_HighLow')
+        contrast_neg_HighLow = basic_conts['HighNeg'] - basic_conts['LowNeg']
+        defined_contrasts.append(contrast_neg_HighLow)
+        contrasts_names.append('contrast_neg_HighLow')
 
-    contrast_pos_HighLow = basic_conts['HighPos'] - basic_conts['LowPos']
-    defined_contrasts.append(contrast_pos_HighLow)
-    contrasts_names.append('contrast_pos_HighLow')
-    contrast_neu_HighLow = basic_conts['HighNeu'] - basic_conts['LowNeu']
-    defined_contrasts.append(contrast_neu_HighLow)
-    contrasts_names.append('contrast_neu_HighLow')
-    contrast_neg_HighLow = basic_conts['HighNeg'] - basic_conts['LowNeg']
-    defined_contrasts.append(contrast_neg_HighLow)
-    contrasts_names.append('contrast_neg_HighLow')
+        # Interactions
+        contrast_inter_WL_NeuPos = contrast_neu_HighLow - contrast_pos_HighLow
+        defined_contrasts.append(contrast_inter_WL_NeuPos)
+        contrasts_names.append('contrast_inter_WL_NeuPos')
+        contrast_inter_WL_NegPos = contrast_neg_HighLow - contrast_pos_HighLow
+        defined_contrasts.append(contrast_inter_WL_NegPos)
+        contrasts_names.append('contrast_inter_WL_NegPos')
+        contrast_inter_WL_NeuNeg = contrast_neu_HighLow - contrast_neg_HighLow
+        defined_contrasts.append(contrast_inter_WL_NeuNeg)
+        contrasts_names.append('contrast_inter_WL_NeuNeg')
 
-    # Interactions
-    contrast_inter_WL_NeuPos = contrast_neu_HighLow - contrast_pos_HighLow
-    defined_contrasts.append(contrast_inter_WL_NeuPos)
-    contrasts_names.append('contrast_inter_WL_NeuPos')
-    contrast_inter_WL_NegPos = contrast_neg_HighLow - contrast_pos_HighLow
-    defined_contrasts.append(contrast_inter_WL_NegPos)
-    contrasts_names.append('contrast_inter_WL_NegPos')
-    contrast_inter_WL_NeuNeg = contrast_neu_HighLow - contrast_neg_HighLow
-    defined_contrasts.append(contrast_inter_WL_NeuNeg)
-    contrasts_names.append('contrast_inter_WL_NeuNeg')
+        contrast_inter_EMO_NeuPos = contrast_high_NeuPos - contrast_low_NeuPos
+        defined_contrasts.append(contrast_inter_EMO_NeuPos)
+        contrasts_names.append('contrast_inter_EMO_NeuPos')
+        contrast_inter_EMO_NegPos = contrast_high_NegPos - contrast_low_NegPos
+        defined_contrasts.append(contrast_inter_EMO_NegPos)
+        contrasts_names.append('contrast_inter_EMO_NegPos')
+        contrast_inter_EMO_NeuNeg = contrast_high_NeuNeg - contrast_low_NeuNeg
+        defined_contrasts.append(contrast_inter_EMO_NeuNeg)
+        contrasts_names.append('contrast_inter_EMO_NeuNeg')
+    else:
+        main_emo_NegSil = basic_conts['main_emo_neg'] - basic_conts['main_emo_sil']
+        defined_contrasts.append(main_emo_NegSil)
+        contrasts_names.append('main_emo_NegSil')
+        main_emo_NeuSil = basic_conts['main_emo_neu'] - basic_conts['main_emo_sil']
+        defined_contrasts.append(main_emo_NeuSil)
+        contrasts_names.append('main_emo_NeuSil')
+        main_emo_PosSil = basic_conts['main_emo_pos'] - basic_conts['main_emo_sil']
+        defined_contrasts.append(main_emo_PosSil)
+        contrasts_names.append('main_emo_PosSil')
 
-    contrast_inter_EMO_NeuPos = contrast_high_NeuPos - contrast_low_NeuPos
-    defined_contrasts.append(contrast_inter_EMO_NeuPos)
-    contrasts_names.append('contrast_inter_EMO_NeuPos')
-    contrast_inter_EMO_NegPos = contrast_high_NegPos - contrast_low_NegPos
-    defined_contrasts.append(contrast_inter_EMO_NegPos)
-    contrasts_names.append('contrast_inter_EMO_NegPos')
-    contrast_inter_EMO_NeuNeg = contrast_high_NeuNeg - contrast_low_NeuNeg
-    defined_contrasts.append(contrast_inter_EMO_NeuNeg)
-    contrasts_names.append('contrast_inter_EMO_NeuNeg')
+        # Contrasts
+        contrast_low_NegSil = basic_conts['LowNeg'] - basic_conts['LowSil']
+        defined_contrasts.append(contrast_low_NegSil)
+        contrasts_names.append('contrast_low_NegSil')
+        contrast_low_NeuSil = basic_conts['LowNeu'] - basic_conts['LowSil']
+        defined_contrasts.append(contrast_low_NeuSil)
+        contrasts_names.append('contrast_low_NeuSil')
+        contrast_low_PosSil = basic_conts['LowPos'] - basic_conts['LowSil']
+        defined_contrasts.append(contrast_low_PosSil)
+        contrasts_names.append('contrast_low_PosSil')
+
+
+        contrast_high_NegSil = basic_conts['HighNeg'] - basic_conts['HighSil']
+        defined_contrasts.append(contrast_high_NegSil)
+        contrasts_names.append('contrast_high_NegSil')
+        contrast_high_NeuSil = basic_conts['HighNeu'] - basic_conts['HighSil']
+        defined_contrasts.append(contrast_high_NeuSil)
+        contrasts_names.append('contrast_high_NeuSil')
+        contrast_high_PosSil = basic_conts['HighPos'] - basic_conts['HighSil']
+        defined_contrasts.append(contrast_high_PosSil)
+        contrasts_names.append('contrast_high_PosSil')
+
+
+        contrast_pos_HighLow = basic_conts['HighPos'] - basic_conts['LowPos']
+        contrast_neu_HighLow = basic_conts['HighNeu'] - basic_conts['LowNeu']
+        contrast_neg_HighLow = basic_conts['HighNeg'] - basic_conts['LowNeg']
+        contrast_sil_HighLow = basic_conts['HighSil'] - basic_conts['LowSil']
+
+
+        # Interactions
+        contrast_inter_WL_NeuSil = contrast_neu_HighLow - contrast_sil_HighLow
+        defined_contrasts.append(contrast_inter_WL_NeuSil)
+        contrasts_names.append('contrast_inter_WL_NeuSil')
+        contrast_inter_WL_NegSil = contrast_neg_HighLow - contrast_sil_HighLow
+        defined_contrasts.append(contrast_inter_WL_NegSil)
+        contrasts_names.append('contrast_inter_WL_NegSil')
+        contrast_inter_WL_PosSil = contrast_pos_HighLow - contrast_sil_HighLow
+        defined_contrasts.append(contrast_inter_WL_PosSil)
+        contrasts_names.append('contrast_inter_WL_PosSil')
+
+        contrast_inter_EMO_PosSil = contrast_high_PosSil - contrast_low_PosSil
+        defined_contrasts.append(contrast_inter_EMO_PosSil)
+        contrasts_names.append('contrast_inter_EMO_PosSil')
+        contrast_inter_EMO_NegSil = contrast_high_NegSil - contrast_low_NegSil
+        defined_contrasts.append(contrast_inter_EMO_NegSil)
+        contrasts_names.append('contrast_inter_EMO_NegSil')
+        contrast_inter_EMO_NeuSil = contrast_high_NeuSil - contrast_low_NeuSil
+        defined_contrasts.append(contrast_inter_EMO_NeuSil)
+        contrasts_names.append('contrast_inter_EMO_NeuSil')
+
 
     # Compute defined contrast
     con = pd.DataFrame()
