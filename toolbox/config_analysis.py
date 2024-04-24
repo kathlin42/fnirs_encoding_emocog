@@ -6,6 +6,7 @@ project_directory = 'R:/MIKADO_83820414/!Ergebnisse/mikado_fnirs_2_bids'
 fsaverage_directory = 'C:/Users/hirning/mne_data/MNE-sample-data'
 time_rest = 30.0
 GLM_time_window = 60.0
+epoch_time_window = 10.0
 event_dict = {'Rest': 10,
               'Baseline': 21,
               'LowNeu': 32,

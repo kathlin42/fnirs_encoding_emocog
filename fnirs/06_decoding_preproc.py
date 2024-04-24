@@ -8,13 +8,11 @@ Created on Wed Sep  1 18:42:07 2021
 # Import required packages
 # =============================================================================
 import os
+import mne
+import pandas as pd
+import numpy as np
 from collections import defaultdict
 from copy import deepcopy
-
-import mne
-
-import numpy as np
-import pandas as pd
 os.chdir('../..')
 from toolbox import config_analysis
 from toolbox import helper_proc
@@ -22,24 +20,18 @@ from toolbox import helper_proc
 # Paths and Variables
 # =============================================================================
 data_directory = os.path.join(config_analysis.project_directory, 'sourcedata')
-analysis_settings = 'fNIRS_GLM_window_'
-include_silence = '_correct_silence'#'_include_silence'
+epoch_length = 10
+analysis_settings = 'fNIRS_decoding_epoch_length_{}'.format(epoch_length)
+include_silence = '_include_silence'#'_include_silence'
 save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings + str(config_analysis.GLM_time_window) + include_silence)
-if not os.path.exists("{}".format(save_directory)):
-    print('creating path for saving')
-    os.makedirs("{}".format(save_directory))
+os.makedirs("{}".format(save_directory), exist_ok=True)
+
 #Exclude Subjects Pilot and First _VP01
 subj_list = [f for f in os.listdir(os.path.join(data_directory, 'fnirs')) if
              not (f.startswith('.') or f.startswith('_') or f.startswith('Pilot'))]
 subj_list.sort()
-
-df_cha = pd.DataFrame()  # To store channel level results
-df_con = pd.DataFrame()  # To store channel level contrast results
-df_snr = pd.DataFrame()
-
-total_trials = 0
-dropped_epochs = 0
-dropped_trials = 0
+df_meta = pd.DataFrame()
+df_epochs = pd.DataFrame()
 
 for subj, subj_folder in enumerate(subj_list):
     # subj = 11
@@ -52,8 +44,6 @@ for subj, subj_folder in enumerate(subj_list):
     fnirs_folders.sort()
     raw_list = []
     event_list = []
-
-
     for i, fnirs_path in enumerate(fnirs_folders):
         # i = 0
         # fnirs_path = fnirs_folders[i]
@@ -71,36 +61,26 @@ for subj, subj_folder in enumerate(subj_list):
 
     raw, events = mne.concatenate_raws(raws=raw_list, preload=True, events_list=event_list)
     events = events[events[:, 0] > 0]
+    events = helper_proc.resample_non_overlapping_mne_markers(events, raw.info['sfreq'], 60, 10)
     raw, event_dict, event_desc = helper_proc.correct_annotations(raw, events, drop_silence = False)
-    raw_haemo, channel, contrasts, dict_snr = helper_proc.first_level_GLM_analysis(raw, event_dict, events, subj, save_directory)
-    if subj == 2:
-        raw_haemo.save(os.path.join(save_directory, 'exemplary_raw.fif'),
-            overwrite=True)
 
-    total_trials += num_trials
-
+    epochs, dict_meta = helper_proc.preproc_and_extract_epochs(raw, event_dict, events, subj, save_directory)
+    # Save individual-evoked participant data along with others in all_evokeds
+    df_epochs_sub = epochs.to_data_frame()
+    df_epochs_sub['ID'] = subj
+    df_epochs = pd.concat((df_epochs, df_epochs_sub))
+    dict_count = {'total_epochs': len(epochs), 'dropped_epochs_in_%': epochs.drop_log_stats()}
+    for event in range(0, len(np.unique(events[:, 2]))):
+        if event_desc[np.unique(events[:, 2], return_counts=True)[0][event]] in list(event_dict.keys()):
+            dict_meta['n_trial_' + event_desc[np.unique(events[:, 2], return_counts=True)[0][event]]] = [\
+                np.unique(events[:, 2], return_counts=True)[1][event]]
+            if event_desc[np.unique(events[:, 2], return_counts=True)[0][event]] not in list(dict_count.keys()):
+                dict_count['n_trial_' + event_desc[np.unique(events[:, 2], return_counts=True)[0][event]]] = \
+                np.unique(events[:, 2], return_counts=True)[1][event]
+            else:
+                dict_count['n_trial_' + event_desc[np.unique(events[:, 2], return_counts=True)[0][event]]] += \
+                np.unique(events[:, 2], return_counts=True)[1][event]
     # Append individual results to dataframes
-    df_cha = df_cha.append(channel)
-    df_con = df_con.append(contrasts)
-    df_snr = df_snr.append(pd.DataFrame(dict_snr))
-
-df_snr['total_trials'] = total_trials
-
-print(f"Mean CNR_HBO: {df_snr['CNR_HBO'].mean()}")
-print(f"Mean CNR_HBR: {df_snr['CNR_HBR'].mean()}")
-print(f"Mean SNR_PRE_OD: {df_snr['SNR_PRE_OD'].mean()}")
-print(f"Mean SNR_PRE_RAW: {df_snr['SNR_PRE_RAW'].mean()}")
-print(f"Mean SNR_POST_OD: {df_snr['SNR_POST_OD'].mean()}")
-
-conditions = [key for key in list(event_dict.keys()) if key not in ['Baseline', 'Rest']]
-df_cha = df_cha.loc[(df_cha['Condition'].isin(conditions))]
-df_cha = df_cha[['ID', 'Condition', 'ch_name', 'Chroma', 'theta', 'se', 't', 'df', 'p_value', 'Source', 'Detector']]
-df_cha.to_csv(os.path.join(save_directory, 'nirs_glm_cha.csv'),
-              index=False, decimal=',', sep=';')
-
-df_con = df_con[['ID', 'Contrast', 'ch_name', 'Chroma', 'effect', 'p_value', 'stat', 'z_score', 'Source', 'Detector']]
-df_con.to_csv(os.path.join(save_directory, 'nirs_glm_con.csv'),
-              index=False, decimal=',', sep=';')
-
-df_snr.to_csv(os.path.join(save_directory, 'df_snr.csv'),
-              index=False, decimal=',', sep=';')
+    dict_meta.update(dict_count)
+    df_meta = pd.concat((df_meta, pd.DataFrame(dict_meta)))
+df_epochs.to_csv(os.path.join(save_directory,'df_epochs.csv'), index=False, header = True, decimal=',', sep=';')

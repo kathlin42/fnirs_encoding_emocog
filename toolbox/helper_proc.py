@@ -129,7 +129,7 @@ def get_triggers(data_directory, subj_folder, fnirs_path, raw, subj, drop_silenc
     df_events = pd.merge_asof(df_events, df_time_samp, left_on='Timestamp_Aurora', right_on='Timestamp',
                               direction='nearest', tolerance=100)
 
-    df_events['Condition'] = df_events['StimuliName'].replace(events_from_config)
+    df_events['Condition'] = df_events['StimuliName'].replace(events_from_config).infer_objects(copy=False)
 
     df_mne = pd.DataFrame(columns=['Sample', '0', 'Condition'])
     df_mne['Sample'] = df_events['Sample']
@@ -171,8 +171,107 @@ def correct_annotations(raw, events, drop_silence = True):
                                 description=descriptions)
     raw.set_annotations(new_annot)
 
-    return raw, event_dict
+    return raw, event_dict, event_desc
+def resample_non_overlapping_mne_markers(markers: list, fs: float, current_toi_in_sec: float, desired_epo_toi_in_sec: float) -> list:
+    """
 
+    Resample markers
+
+    Parameters
+    ----------
+    markers: numpy array (samples x [sample nr, ...]) sample number has to be the first column. The other
+        columns will be adopted to the new generated marker samples
+    fs: sample rate in Hz
+    current_toi_in_sec : length of valid time interval to create marker in sec
+    desired_epo_toi_in_sec: the desired length of an epoch in sec
+
+    Returns
+    -------
+    New markers array (samples x [sample nr, ...])
+
+    """
+
+    out_sample_len = fs * desired_epo_toi_in_sec
+    new_markers = []
+
+    if current_toi_in_sec > desired_epo_toi_in_sec:  # Up sampling
+        generated_samples = int(current_toi_in_sec / desired_epo_toi_in_sec)
+        for m in markers:
+            for i in range(generated_samples):
+                row = [m[0] + (i * out_sample_len)] + m[1:].tolist()
+                new_markers.append(row)
+    else:  # Down sampling
+        take_samples = int(current_toi_in_sec * desired_epo_toi_in_sec)
+        for i in range(len(markers)):
+            if i % take_samples == 0:  # every take_samples
+                new_markers.append(markers[i])
+    new_array = np.asarray(new_markers).astype(int)
+    sorted_array = new_array[new_array[:, 0].argsort()]
+    return sorted_array
+
+def preproc_and_extract_epochs(raw, event_dict, events, subj, save_directory):
+    conditions = list(event_dict.keys())
+    if 'silence' in save_directory:
+        if event_dict != config_analysis.event_dict_incl_sil:
+            print(f'ERROR - Not all conditions recorded for subject: {subj}')
+            return
+    else:
+        if event_dict != config_analysis.event_dict:
+            print(f'ERROR - Not all conditions recorded for subject: {subj}')
+            return
+
+    conditions.remove('Rest')
+    # Converting from raw intensity to optical density
+    raw_od = mne.preprocessing.nirs.optical_density(raw)
+    # Determine bad channels using scalp coupling index
+    sci = mne.preprocessing.nirs.scalp_coupling_index(raw_od, l_freq=0.7, h_freq=1.5)
+    bads = list(compress(raw_od.ch_names, sci < 0.5))
+    raw_od.info['bads'] = bads
+    # Short Channel Regression - if desired
+    try:
+        raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
+    except:
+        print('Short Channels in BADS:', raw_od.info['bads'])
+
+    # Repairs temporal derivative distribution
+    raw_od = mne.preprocessing.nirs.tddr(raw_od)
+    raw_od.info['bads'] = raw_od.info['bads'] + list(compress(raw_od.ch_names, np.isnan(raw_od.get_data()[:, 0])))
+
+    # Converting from optical density to haemoglobin (Homer uses ppf=6, MNE pp=0.1)
+    raw_haemo = mne.preprocessing.nirs.beer_lambert_law(raw_od, ppf=6)
+    raw_haemo.info['bads'] = raw_haemo.info['bads'] + list(
+        compress(raw_haemo.ch_names, np.isnan(raw_haemo.get_data()[:, 0])))
+
+    raw_haemo = raw_haemo.filter(method='iir', l_freq=0.05, h_freq=0.7, h_trans_bandwidth=0.2, l_trans_bandwidth=0.02)
+    # Negative correlation enhancement algorithm
+    raw_haemo = mne_nirs.signal_enhancement.enhance_negative_correlation(raw_haemo)
+    raw_haemo = mne_nirs.channels.get_long_channels(raw_haemo)
+
+    # =============================================================================
+    # Extract Epochs
+    # =============================================================================
+    reject_criteria = dict(hbo=80e-6)
+    epochs = mne.Epochs(raw_haemo,
+                        events,
+                        event_id=event_dict,
+                        tmin=0, tmax=config_analysis.epoch_time_window,
+                        reject=reject_criteria,
+                        reject_by_annotation=True,
+                        # picks=mne.pick_types(raw_haemo.info, meg=False, fnirs=True, exclude=['bads']),
+                        proj=True,
+                        baseline=None,
+                        detrend=0,
+                        event_repeated = 'drop',
+                        verbose=True,
+                        preload=True)
+    epochs.info['subject_info']['ID'] = subj
+    dict_meta = {'ID': [subj],
+                'bads': [bads],
+                'n_bads': [len(bads)],
+                'n_epochs': [epochs._data.shape[0]]
+                }
+
+    return epochs, dict_meta
 
 def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     # raw.plot(duration=300, n_channels=len(raw_concat.ch_names))
