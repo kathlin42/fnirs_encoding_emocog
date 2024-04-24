@@ -1,0 +1,80 @@
+﻿Channel;Source;Detector;Brodmann Area;X (mm);Y (mm);Z (mm);Specificity (%)
+1;S12 (FC2);D3 (F2);R BA8 - Frontal eye fields;24;26;55;58
+;;;R BA9 - Dorsolateral prefrontal cortex;;;;33
+2;S12 (FC2);D12 (FCz);R BA6 - Pre-Motor and Supplementary Motor Cortex;14;13;66;63
+;;;R BA8 - Frontal eye fields;;;;35
+3;S3 (Fz);D3 (F2);R BA9 - Dorsolateral prefrontal cortex;10;41;50;69
+;;;R BA8 - Frontal eye fields;;;;29
+4;S5 (F4);D3 (F2);R BA9 - Dorsolateral prefrontal cortex;30;40;41;68
+;;;R BA46 - Dorsolateral prefrontal cortex;;;;22
+5;S5 (F4);D7 (FC4);R BA9 - Dorsolateral prefrontal cortex;44;25;40;31
+;;;R BA44 - pars opercularis, part of Broca's area;;;;27
+6;S12 (FC2);D7 (FC4);R BA6 - Pre-Motor and Supplementary Motor Cortex;39;12;54;38
+;;;R BA9 - Dorsolateral prefrontal cortex;;;;36
+;;;R BA8 - Frontal eye fields;;;;21
+7;S2 (AF4);D1 (AFz) ;R BA10 - Frontopolar area;13;61;24;72
+8;S2 (AF4);D9 (Fp2);R BA10 - Frontopolar area;25;63;9;69
+;;;R BA11 - Orbitofrontal area;;;;22
+9;S6 (Fpz);D9 (Fp2);R BA10 - Frontopolar area;13;67;0;54
+;;;R BA11 - Orbitofrontal area;;;;45
+10;S8 (AF8);D9 (Fp2);R BA10 - Frontopolar area;34;59;-2;31
+;;;R BA11 - Orbitofrontal area;;;;30
+;;;R BA46 - Dorsolateral prefrontal cortex;;;;20
+11;S10 (F8);D10 (F10);R BA38 - Temporopolar area;52;30;-13;36
+12;S10 (F8);D14 (FT8);R BA38 - Temporopolar area;57;21;-4;32
+13;S14 (FC6);D7 (FC4);R BA44 - pars opercularis, part of Broca's area;56;12;33;41
+;;;R BA6 - Pre-Motor and Supplementary Motor Cortex;;;;40
+14;S5 (F4);D5 (F6);R BA45 - pars triangularis Broca's area;46;38;24;71
+;;;R BA46 - Dorsolateral prefrontal cortex;;;;23
+15;S10 (F8);D5 (F6);R BA45 - pars triangularis Broca's area;55;36;5;66
+16;S14 (FC6);D5 (F6);R BA45 - pars triangularis Broca's area;58;24;18;53
+;;;R BA44 - pars opercularis, part of Broca's area;;;;29
+17;S14 (FC6);D14 (FT8);R BA48 - Retrosubicular area;61;11;8;28
+;;;R BA6 - Pre-Motor and Supplementary Motor Cortex;;;;26
+18;S8 (AF8);D5 (F6);R BA45 - pars triangularis Broca's area;48;46;5;44
+;;;R BA46 - Dorsolateral prefrontal cortex;;;;43
+19;S2 (AF4);D5 (F6);R BA46 - Dorsolateral prefrontal cortex;40;50;16;47
+;;;R BA45 - pars triangularis Broca's area;;;;31
+20;S3 (Fz);D12 (FCz);M BA8 middle - Frontal eye fields;1;27;58;60
+;;;M BA6 middle - Pre-Motor and Supplementary Motor Cortex;;;;24
+21;S3 (Fz);D1 (AFz) ;M BA9 middle - Dorsolateral prefrontal cortex;2;50;39;62
+;;;M BA10 middle - Frontopolar area;;;;20
+22;S6 (Fpz);D1 (AFz) ;M BA10 middle - Frontopolar area;1;64;14;87
+23;S11 (FC1);D2 (F1);L BA8 - Frontal eye fields;-23;26;56;64
+;;;L BA9 - Dorsolateral prefrontal cortex;;;;26
+24;S3 (Fz);D2 (F1);L BA9 - Dorsolateral prefrontal cortex;-9;41;50;63
+;;;L BA8 - Frontal eye fields;;;;35
+25;S4 (F3);D2 (F1);L BA9 - Dorsolateral prefrontal cortex;-31;39;41;67
+;;;L BA46 - Dorsolateral prefrontal cortex;;;;25
+26;S4 (F3);D6 (FC3);L BA9 - Dorsolateral prefrontal cortex;-45;25;41;37
+;;;L BA44 - pars opercularis, part of Broca's area;;;;27
+27;S11 (FC1);D6 (FC3);L BA6 - Pre-Motor and Supplementary Motor Cortex;-38;12;55;38
+;;;L BA9 - Dorsolateral prefrontal cortex;;;;35
+;;;L BA8 - Frontal eye fields;;;;23
+28;S11 (FC1);D12 (FCz);L BA6 - Pre-Motor and Supplementary Motor Cortex;-13;12;67;73
+;;;L BA8 - Frontal eye fields;;;;26
+29;S1 (AF3);D1 (AFz) ;L BA10 - Frontopolar area;-12;62;23;76
+30;S1 (AF3);D8 (Fp1);L BA10 - Frontopolar area;-24;63;9;70
+;;;L BA11 - Orbitofrontal area;;;;20
+31;S6 (Fpz);D8 (Fp1);L BA10 - Frontopolar area;-12;67;0;54
+;;;L BA11 - Orbitofrontal area;;;;45
+32;S7 (AF7);D8 (Fp1);L BA11 - Orbitofrontal area;-33;59;-2;33
+;;;L BA46 - Dorsolateral prefrontal cortex;;;;25
+;;;L BA10 - Frontopolar area;;;;25
+33;S9 (F7);D11 (F9);L BA38 - Temporopolar area;-49;31;-12;32
+;;;L BA47 - Inferior prefrontal gyrus;;;;32
+34;S9 (F7);D13 (FT7);L BA38 - Temporopolar area;-54;21;-4;32
+;;;L BA45 - pars triangularis Broca's area;;;;24
+35;S13 (FC5);D6 (FC3);L BA44 - pars opercularis, part of Broca's area;-55;12;34;48
+;;;L BA6 - Pre-Motor and Supplementary Motor Cortex;;;;36
+36;S13 (FC5);D4 (F5);L BA45 - pars triangularis Broca's area;-56;24;20;53
+;;;L BA44 - pars opercularis, part of Broca's area;;;;34
+37;S13 (FC5);D13 (FT7);L BA48 - Retrosubicular area;-59;11;9;32
+;;;L BA6 - Pre-Motor and Supplementary Motor Cortex;;;;24
+38;S9 (F7);D4 (F5);L BA45 - pars triangularis Broca's area;-53;37;6;80
+39;S4 (F3);D4 (F5);L BA45 - pars triangularis Broca's area;-46;39;26;73
+;;;L BA46 - Dorsolateral prefrontal cortex;;;;22
+40;S7 (AF7);D4 (F5);L BA45 - pars triangularis Broca's area;-47;46;6;49
+;;;L BA46 - Dorsolateral prefrontal cortex;;;;43
+41;S1 (AF3);D4 (F5);L BA46 - Dorsolateral prefrontal cortex;-39;50;17;49
+;;;L BA45 - pars triangularis Broca's area;;;;32
