@@ -45,19 +45,21 @@ os.makedirs(save_path, exist_ok=True)
 exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc',analysis_settings, "exemplary_raw.fif")).load_data()
 exemplary_raw_haemo.info['bads'] = []
 mne.datasets.fetch_fsaverage()
+colormaps = {'hbr': matplotlib.cm.PiYG_r, 'hbo': matplotlib.cm.PuOr_r, 'std': matplotlib.cm.Reds}
 
 for analysis in helper_ml.get_pipeline_settings().keys():
-    if 'topographical' in analysis:
-        score_list = [('scores_without_SFS', '.mat', '')]
+    if 'topographical' not in analysis:
+        continue
+        score_list = [('scores_with_SFS', '.mat', '_SFS')]
 
     else:
-        score_list = [('scores_with_SFS', '.mat', '_SFS')]
+        score_list = [('scores_without_SFS', '.mat', '')]
+
     for specification in os.listdir(os.path.join(data_path, analysis)):
         save = os.path.join(save_path, analysis, specification)
         os.makedirs(save, exist_ok=True)
         chroma = specification[-3:]
         if chroma == 'hbo':
-            colormap = matplotlib.cm.PuOr_r
             color_per_subj = '#eee8aa'
             average_color = '#a7a277'
             list_color_classifier = ['#eee8aa', '#fcc9b5', '#f194b8']
@@ -65,11 +67,10 @@ for analysis in helper_ml.get_pipeline_settings().keys():
             lims_coefficients = (-0.5, 0, 0.5)
             lims_patterns  = (-0.2, 0, 0.2)
         elif chroma == 'hbr':
-            colormap = matplotlib.cm.PiYG_r
-            color_per_subj = '#00df92'
-            average_color = '#00bf7d'
-            list_color_classifier = ['#00df92', '#00cee2', '#0079f2']
-            list_color_classifier_averaged = ['#00bf7d', '#00b4c5', '#0073e6']
+            color_per_subj = '#00cee2'
+            average_color = '#00b4c5'
+            list_color_classifier = ['#00cee2', '#0079f2', '#00df92']
+            list_color_classifier_averaged = [ '#00b4c5', '#0073e6', '#00bf7d']
             lims_coefficients = (-0.2, 0, 0.2)
             lims_patterns = (-0.2, 0, 0.2)
         df_full = pd.DataFrame()
@@ -221,17 +222,25 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                         con_model = smf.mixedlm("coef ~ -1 + ch_name:Chroma", con_summary, groups=con_summary["ID"]).fit(
                             method='nm')
                         df_con_model = mne_nirs.statistics.statsmodels_to_results(con_model)
-                        for subj in df_coef['subj'].unique().tolist() + ['average']:
+                        for subj in df_coef['subj'].unique().tolist() + ['average', 'std']:
                             if subj != 'average':
                                 coefficients = df_coef_classifier.loc[(df_coef_classifier['subj'] == subj)].groupby(['features']).mean(numeric_only = True).reset_index()
-                            else:
-                                coefficients = df_coef_classifier.groupby(['features']).mean(numeric_only = True).reset_index()
+                                colormap_key = chroma
+                            elif subj == 'average':
+                                coefficients = df_coef_classifier.groupby(['features']).mean(
+                                    numeric_only=True).reset_index()
+                                colormap_key = chroma
+                            elif subj == 'std':
+                                coefficients = df_coef_classifier.groupby(['features']).std(
+                                    numeric_only=True).reset_index()
+                                colormap_key = subj
                             assert len(coefficients) == len(df_con_model['Coef.'].values)
                             df_con_model['Coef.'] = coefficients['coef'].values
                             df_con_model['Source'] = coefficients['Source'].values
                             df_con_model['Detector'] = coefficients['Detector'].values
-                            df_con_model = df_con_model.sort_values(by=['Source', 'Detector'], ascending=[True, True])
-
+                            df_con_model_sorted = df_con_model.sort_values(by=['Source', 'Detector'],
+                                                                           ascending=[True, True]).copy()
+                            print(list(df_con_model_sorted["ch_name"].values))
                             mne.datasets.fetch_fsaverage()
                             # Cortical Surface Projections for Contrasts
                             for view in ['rostral', 'lateral']:
@@ -247,9 +256,9 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                                     save_name = specification.upper() + '_' + feature.upper().replace(' ', '_')
                                     brain = mne_nirs.visualisation.plot_glm_surface_projection(
                                         exemplary_raw_haemo.copy().pick(picks=chroma),
-                                        statsmodel_df=df_con_model, picks=chroma,
+                                        statsmodel_df=df_con_model_sorted, picks=chroma,
                                         view=view, hemi=hemi, clim={'kind': 'value', 'lims': lims_coefficients},
-                                        colormap=colormap, colorbar=colorbar, size=(800, 700))
+                                        colormap=colormaps[colormap_key], colorbar=colorbar, size=(800, 700))
                                     if subj != 'average':
                                         save_brain_plot = os.path.join(save, save_name, 'subject_level', con)
                                         os.makedirs(save_brain_plot, exist_ok=True)
@@ -292,20 +301,29 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                         con_model = smf.mixedlm("patterns ~ -1 + ch_name:Chroma", con_summary, groups=con_summary["ID"]).fit(
                             method='nm')
                         df_con_model = mne_nirs.statistics.statsmodels_to_results(con_model)
-                        for subj in df_coef['subj'].unique().tolist() + ['average']:
+                        for subj in df_coef['subj'].unique().tolist() + ['average', 'std']:
                             if subj != 'average':
                                 coefficients = df_patterns_classifier.loc[(df_patterns_classifier['subj'] == subj)].groupby(
                                     ['features']).mean(numeric_only=True).reset_index()
-                            else:
+                                colormap_key = chroma
+                            elif subj == 'average':
                                 coefficients = df_patterns_classifier.groupby(['features']).mean(
                                     numeric_only=True).reset_index()
+                                colormap_key = chroma
+
+                            elif subj == 'std':
+                                coefficients = df_patterns_classifier.groupby(['features']).std(
+                                    numeric_only=True).reset_index()
+                                colormap_key = subj
+
 
                             assert len(coefficients) == len(df_con_model['Coef.'].values)
                             df_con_model['Coef.'] = coefficients['patterns'].values
                             df_con_model['Source'] = coefficients['Source'].values
                             df_con_model['Detector'] = coefficients['Detector'].values
-                            df_con_model = df_con_model.sort_values(by=['Source', 'Detector'], ascending=[True, True])
-
+                            df_con_model_sorted = df_con_model.sort_values(by=['Source', 'Detector'],
+                                                                           ascending=[True, True]).copy()
+                            print(list(df_con_model_sorted["ch_name"].values))
                             mne.datasets.fetch_fsaverage()
                             # Cortical Surface Projections for Contrasts
                             for view in ['rostral', 'lateral']:
@@ -321,9 +339,9 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                                     save_name = 'Patterns_' + specification.upper() + '_' + feature.upper().replace(' ', '_')
                                     brain = mne_nirs.visualisation.plot_glm_surface_projection(
                                         exemplary_raw_haemo.copy().pick(picks=chroma),
-                                        statsmodel_df=df_con_model, picks=chroma,
+                                        statsmodel_df=df_con_model_sorted, picks=chroma,
                                         view=view, hemi=hemi, clim={'kind': 'value', 'lims': lims_patterns},
-                                        colormap=colormap, colorbar=colorbar, size=(800, 700))
+                                        colormap=colormaps[colormap_key], colorbar=colorbar, size=(800, 700))
 
                                     if subj != 'average':
                                         save_brain_plot = os.path.join(save, save_name, 'subject_level', con)
