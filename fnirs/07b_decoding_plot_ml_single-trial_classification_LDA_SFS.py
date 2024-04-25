@@ -1,26 +1,20 @@
 # =============================================================================
-# fNIRS WORKLOAD Classification - Plot Results
+# fNIRS Classification - Plot Results
 # Use standard features and simple linear models
 # with nested cross-validation per subject
-# combine cross_val with Grid_Search_CV
+# combine cross_val with Grid_Search_CV with Sequential Feature Selection
 # =============================================================================
 
 # import necessary modules
 import os
-import warnings
 import numpy as np
-
 import pandas as pd
-from scipy.io import loadmat
 import mne
 import mne_nirs
 mne.viz.set_3d_backend("pyvista")  # pyvistaqt
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib as mpl
-import seaborn as sns
-from natsort import natsort_keygen
 import statsmodels.formula.api as smf
 os.chdir('..')
 from toolbox import (helper_ml, helper_plot, config_analysis)
@@ -37,8 +31,6 @@ os.environ['PATH'] += r';~qgis directory\apps\qgis\bin;~qgis directory\apps\Qt5\
 # Load Data
 ###############################################################################
 fig_format = ['svg', 'png']
-plot_coefficients = True
-plot_patterns = True
 classifier_of_interest = 'LDA'
 contrast = 'HighNeg_vs_LowNeg_vs_HighPos_vs_LowPos'
 epoch_length = 10
@@ -51,29 +43,28 @@ os.makedirs(save_path, exist_ok=True)
 exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc',analysis_settings, "exemplary_raw.fif")).load_data()
 exemplary_raw_haemo.info['bads'] = []
 mne.datasets.fetch_fsaverage()
-analysis = 'linear_model_k_20'
 specification = 'full_hbo+hbr'
+analysis = 'linear_model_k_best'
 
-save = os.path.join(save_path, analysis, specification)
-if not os.path.exists(save):
-    os.makedirs(save)
-chroma = specification[-7:]
-color = 'lightsteelblue'
-average_color = 'slategrey'
-dummy_classifier_color = 'salmon'
+save = os.path.join(save_path, analysis + '_' + specification)
+os.makedirs(save, exist_ok=True)
+chroma = specification.split('_')[-1]
+color = '#107869'
+average_color = '#1a5653'
+dummy_classifier_color = '#a5100c'
 feature = 'all'
 fsize = 18
 score_file = ('scores_with_SFS', '.csv', '_SFS')
-
+estimated_chance_level = helper_ml.estimated_chance_level
 # =============================================================================
 # Read Data
 # =============================================================================
-if os.path.exists(os.path.join(save_path, analysis, specification, feature, 'df_boot_SFS.csv')):
-    df_boot = pd.read_csv(os.path.join(save_path, analysis, specification, feature, 'df_boot_SFS.csv'),
+if os.path.exists(os.path.join(save, 'df_boot_SFS.csv')):
+    df_boot = pd.read_csv(os.path.join(save, 'df_boot_SFS.csv'),
                           header=0,
                           decimal=',', sep=';')
 else:
-    df_boot = helper_ml.create_df_boot_SFS_scores(data_path, save_path, analysis, specification, feature, score_file, contrast)
+    df_boot = helper_ml.create_df_boot_SFS_scores(data_path, save, analysis, specification, feature, score_file, contrast)
 # rename subj to start at 1
 dict_rename_subj = dict(zip(list(df_boot['subj'].unique()), list(
     ['sub-0' + str(subj_num) if len(str(subj_num)) == 1 else 'sub-' + str(subj_num) for subj_num in
@@ -82,13 +73,8 @@ df_boot['subj'] = df_boot['subj'].replace(dict_rename_subj)
 # add average !!! WATCH OUT - NEED TO BE EXCLUDED WHEN LOOKING AT SUBJ DATA
 df_average = df_boot.copy()
 df_average['subj'] = 'average'
-df_boot = df_boot.append(df_average)
+df_boot = pd.concat((df_boot, df_average))
 df_boot = df_boot.reset_index(drop=True)
-
-# empirical chance level from Dummy Classifier
-empirical_chance_level = {'lower': 0.4990093617582353,
- 'mean': 0.5003657096819976,
- 'upper': 0.501694809992172}
 
 # =============================================================================
 # Analyse effect of k on performance
@@ -134,15 +120,15 @@ fig, df_boo = helper_plot.plot_single_trial_bootstrapped_boxplots(
     sorted(df_best_k['subj'].unique())[1:] + ['average'], df_best_k, 'subj', 'fold',
     ['test'],
     boot='mean', boot_size=5000,
-    title='Decoding with optimized HbO and HbR Features (k ={})'.format(str(best_k)),
+    title='Optimized HbO+HbR Features in Four-Class Decoding (k ={})'.format(str(best_k)),
     lst_color=list_color, ncolor_group=1,
     fwr_correction=True,
-    x_labels=sorted(df_best_k['subj'].unique())[1:] + ['average'], chance_level=True,
+    x_labels=sorted(df_best_k['subj'].unique())[1:] + ['average'], chance_level=0.25,
     legend= ([Line2D([0], [0], color=list_color[0], lw=3)],
             ['LDA with SFS']),
     n_col=1,
     figsize=(8, 6),
-    empirical_chance_level=empirical_chance_level, fs = fsize, axtitle = False)
+    empirical_chance_level=estimated_chance_level, fs = fsize, axtitle = False)
 df_boo.to_csv(os.path.join(save, classifier_of_interest + '_Classification_Participantwise_K_{}.csv'.format(best_k)), header=True,
               index=True, decimal=',', sep=';')
 for end in fig_format:
@@ -152,7 +138,7 @@ plt.clf()
 # =============================================================================
 # Analyze Features
 # =============================================================================
-roi, ch_mappings = helper_ml.get_roi_ch_mappings(project = 'mikado')
+roi, roi_integer, channel_mappings = helper_ml.get_roi_ch_mappings(project = 'mikado')
 counts, actual_channels, counts_ch_per_feat_chroma = helper_ml.count_features(df_best_k, best_k, roi)
 
 #%%
@@ -163,8 +149,15 @@ y = np.asarray(list(counts[group_of_interest].values()))
 order = np.argsort(-y)  # Sort indexes in descending order
 
 x_labels = [label.split(' ')[2].replace('time2max','T2P').replace('peak2peak','P2P')  for label in x[order]]
-dict_color = {'hbo': dict(zip(list(roi.keys()),['#fbf8cc', '#fde4cf', '#ffcfd2', '#f1c0e8'])),
-              'hbr': dict(zip(list(roi.keys()),['#b9fbc0', '#98f5e1', '#90dbf4','#a3c4f3']))}
+
+dict_color = {
+    'hbo': dict(zip(['rdlPFC', 'ldlPFC', 'rIFG/OFC', 'lIFG/OFC', 'mdlPFC', 'premotor', 'fronto-temporal', 'others'],
+                    ['#7E26A6', '#a6278C', '#b13470', '#bc4357', '#c86554', '#d39865', '#E5C695', "#A9A9A9"])),
+    'hbr': dict(zip(['rdlPFC', 'ldlPFC', 'rIFG/OFC', 'lIFG/OFC', 'mdlPFC', 'premotor', 'fronto-temporal', 'others'],
+                    ["#115f9a", "#1984c5", "#22a7f0", "#48b5c4", "#76c68f", "#a6d75b", "#c9e52f", "#C0C0C0"]))
+}
+
+
 #Create Legend
 legend_names = []
 legend_color = []
@@ -210,11 +203,11 @@ for key in counts_ch_per_feat_chroma.keys():
     chs = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[0]
     cts = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[1]
     for cu in cts:
+        print(cu)
         if cu > max_n_ch:
             max_n_ch = cu
 
-colormap = {'hbo' :  mpl.colors.LinearSegmentedColormap.from_list("", ["white", "#9A0049"]), 'hbr':mpl.colors.LinearSegmentedColormap.from_list("", ["white", "#106000"])}
-cmp_PiYGr = mpl.cm.PiYG_r
+colormap = {'hbo' :  mpl.colors.LinearSegmentedColormap.from_list("", ["white", '#4A236F']), 'hbr':mpl.colors.LinearSegmentedColormap.from_list("", ["white",  '#060C7F'])}
 lims_coefficients = (0, max_n_ch / 2, max_n_ch)
 for key in counts_ch_per_feat_chroma.keys():
     chroma = key.split('_')[0]

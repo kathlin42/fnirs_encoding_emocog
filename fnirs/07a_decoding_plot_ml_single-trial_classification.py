@@ -25,8 +25,8 @@ np.random.seed(42)
 # Load Data
 ###############################################################################
 fig_format = ['svg', 'png']
-plot_coefficients = True
-plot_patterns = True
+plot_coefficients = False
+plot_patterns = False
 classifier_of_interest = 'LDA'
 contrast = 'HighNeg_vs_LowNeg_vs_HighPos_vs_LowPos'
 epoch_length = 10
@@ -40,7 +40,7 @@ exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(config_analysis.project_d
 exemplary_raw_haemo.info['bads'] = []
 mne.datasets.fetch_fsaverage()
 colormaps = {'hbr': matplotlib.cm.PiYG_r, 'hbo': matplotlib.cm.PuOr_r, 'standard_error': matplotlib.cm.Reds}
-
+df_empirical_chance_level = pd.DataFrame()
 for analysis in helper_ml.get_pipeline_settings().keys():
     if 'topographical' not in analysis:
         continue
@@ -50,7 +50,7 @@ for analysis in helper_ml.get_pipeline_settings().keys():
         score_list = [('scores_without_SFS', '.mat', '')]
 
     for specification in os.listdir(os.path.join(data_path, analysis)):
-        save = os.path.join(save_path, analysis, specification)
+        save = os.path.join(save_path, analysis)
         os.makedirs(save, exist_ok=True)
         chroma = specification[-3:]
         if chroma == 'hbo':
@@ -65,7 +65,7 @@ for analysis in helper_ml.get_pipeline_settings().keys():
             average_color = '#00b4c5'
             list_color_classifier = ['#00cee2', '#0079f2', '#00df92']
             list_color_classifier_averaged = [ '#00b4c5', '#0073e6', '#00bf7d']
-            lims_coefficients = (-0.2, 0, 0.2)
+            lims_coefficients = (-0.5, 0, 0.5)
             lims_patterns = (-0.2, 0, 0.2)
         df_full = pd.DataFrame()
         list_features = [feature for feature in os.listdir(os.path.join(data_path, analysis, specification)) if '.' not in feature]
@@ -74,8 +74,8 @@ for analysis in helper_ml.get_pipeline_settings().keys():
             # =============================================================================
             # Plot per Subject
             # =============================================================================
-            if os.path.exists(os.path.join(save_path, analysis, specification, feature, 'df_boot.csv')):
-                df_boot = pd.read_csv(os.path.join(save_path, analysis, specification, feature, 'df_boot.csv'),
+            if os.path.exists(os.path.join(save_path, analysis,  feature, 'df_boot.csv')):
+                df_boot = pd.read_csv(os.path.join(save_path, analysis, feature, 'df_boot.csv'),
                                       header=0,
                                       decimal=',', sep=';')
             else:
@@ -116,6 +116,9 @@ for analysis in helper_ml.get_pipeline_settings().keys():
             df_full.loc[df_full['subj'] != 'average', 'Dummy'].values,
             sample_size=None, numb_iterations=5000, alpha=0.95,
             plot_hist=False, as_dict=True, func='mean')
+        empirical_chromopore = pd.DataFrame.from_dict(empirical_chance_level, orient= 'index').T
+        empirical_chromopore['Chromophore'] = chroma
+        df_empirical_chance_level = pd.concat((df_empirical_chance_level, empirical_chromopore))
         print('EMPIRICAL CHANCE LEVEL', analysis, empirical_chance_level)
         list_color = list_color_classifier * len(os.listdir(os.path.join(data_path, analysis, specification)))
 
@@ -192,32 +195,29 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                 # =============================================================================
                 # Plot Coefficients averaged over Participants
                 # =============================================================================
-                if os.path.exists(os.path.join(save_path, analysis, specification, feature.split(' ')[0], 'df_coef.csv')):
-                    df_coef = pd.read_csv(os.path.join(save_path, analysis, specification, feature.split(' ')[0], 'df_coef.csv'),
+                if os.path.exists(os.path.join(save_path, analysis, feature.split(' ')[0], 'df_coef.csv')):
+                    df_coef = pd.read_csv(os.path.join(save_path, analysis, feature.split(' ')[0], 'df_coef.csv'),
                                           header=0,
                                           decimal=',', sep=';')
                 else:
                     df_coef = helper_ml.create_df_coefficients(data_path, save_path, analysis, specification, feature.split(' ')[0],
                                                                contrast)
 
-                helper_plot.plot_weights_3d_brain(df_coef, 'coef', chroma, df_coef['subj'].unique().tolist() + ['average', 'std', 'weighted_average'],
-                                                  colormaps, lims_coefficients, exemplary_raw_haemo, specification.upper() + '_' + feature.upper().replace(' ', '_'), save)
+                helper_plot.plot_weights_3d_brain(df_coef, 'coef', chroma,  ['average', 'standard_error', 'weighted_average'],
+                                                  colormaps, lims_coefficients, exemplary_raw_haemo, feature.upper().replace(' ', '_'), save)
             if plot_patterns:
                 # =============================================================================
                 # Plot Patterns averaged over Participants
                 # =============================================================================
-                if os.path.exists(os.path.join(save_path, analysis, specification, feature.split(' ')[0], 'df_patterns.csv')):
-                    df_patterns = pd.read_csv(os.path.join(save_path, analysis, specification, feature.split(' ')[0], 'df_patterns.csv'),
+                if os.path.exists(os.path.join(save_path, analysis, feature.split(' ')[0], 'df_patterns.csv')):
+                    df_patterns = pd.read_csv(os.path.join(save_path, analysis, feature.split(' ')[0], 'df_patterns.csv'),
                                               header=0,
                                               decimal=',', sep=';')
                 else:
-                    df_patterns = helper_ml.create_df_patterns(data_path, save_path, analysis, specification, feature.split(' ')[0],
-                                                               contrast)
+                    df_patterns = helper_ml.create_df_patterns(data_path, save_path, analysis, specification, feature.split(' ')[0], contrast)
 
-                helper_plot.plot_weights_3d_brain(df_patterns, 'patterns', chroma,
-                                                  df_coef['subj'].unique().tolist() + ['average', 'std',
+                helper_plot.plot_weights_3d_brain(df_patterns, 'patterns', chroma, ['average', 'standard_error',
                                                                                        'weighted_average'],
-                                                  colormaps, lims_patterns, exemplary_raw_haemo, 'Patterns_' + specification.upper() + '_' + feature.upper().replace(' ', '_'), save)
+                                                  colormaps, lims_patterns, exemplary_raw_haemo, 'Patterns_' + feature.upper().replace(' ', '_'), save)
 
-
-
+df_empirical_chance_level.to_csv(os.path.join(save_path, 'df_empirical_chance_level.csv'), header = True, index = False, decimal=',', sep = ';')

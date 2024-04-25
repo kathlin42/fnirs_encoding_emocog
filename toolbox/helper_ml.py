@@ -29,6 +29,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 
+estimated_chance_level = {'lower': 0.2451053865270421, 'mean': 0.247164334978413, 'upper': 0.24923904826115506}
 def get_first_last_column_names(hrf, df):
     if hrf == "hbo" or hrf == "hbr":
         for column in df.columns:
@@ -251,10 +252,8 @@ def categorize_brodmann(ba_desc):
         return ba_desc_lower[0] + "dlPFC"
     elif "pre-motor" in ba_desc_lower or "supplementary motor cortex" in ba_desc_lower:
         return "premotor"
-    elif "pars triangularis" in ba_desc_lower or "pars opercularis" in ba_desc_lower or 'inferior prefrontal gyrus' in ba_desc_lower:
-        return ba_desc_lower[0] + "IFG"
-    elif 'orbitofrontal' in ba_desc_lower:
-        return ba_desc_lower[0] + "OFC"
+    elif "pars triangularis" in ba_desc_lower or "pars opercularis" in ba_desc_lower or 'inferior prefrontal gyrus' in ba_desc_lower or 'orbitofrontal' in ba_desc_lower:
+        return ba_desc_lower[0] + "IFG/OFC"
     elif "temporopolar area" in ba_desc_lower:
         return "fronto-temporal"
     return None
@@ -563,8 +562,8 @@ def create_df_boot_scores(data_path, save_path, analysis, specification, feature
                 df_boot_subj = pd.DataFrame({'subj': len(test.flatten()) * [subj], 'classifier': len(test.flatten()) * [classifier + score_file[2]],
                                              'train': train.flatten(),'test': test.flatten(), 'fold': list(range(1, len(test.flatten()) + 1))})
                 df_boot = pd.concat((df_boot, df_boot_subj))
-    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
-    df_boot.to_csv(os.path.join(save_path, analysis, specification, feature,'df_boot.csv'), header = True, index = False, decimal=',', sep = ';')
+    os.makedirs(os.path.join(save_path, analysis, feature), exist_ok=True)
+    df_boot.to_csv(os.path.join(save_path, analysis, feature,'df_boot.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_boot
 
 def create_df_boot_SFS_scores(data_path, save_path, analysis, specification, feature, score_file, contrast):
@@ -573,7 +572,8 @@ def create_df_boot_SFS_scores(data_path, save_path, analysis, specification, fea
         for subj in range(2, 20):
             list_results = [s for s in os.listdir(os.path.join(data_path, analysis, specification, feature, classifier)) if str(subj) == s.split(score_file[0])[-1].strip('_').split('_')[0]]
             if len(list_results) < 1:
-                print(subj)
+                print('Error in', subj)
+                continue
             scores = pd.read_csv(os.path.join(data_path, analysis, specification, feature, classifier, score_file[0] + '_' + str(subj) + '_' + contrast + score_file[1]), sep=';', decimal = ',', header = 0)
             initial_feature_list = []
             for k in range(0, len(scores)):
@@ -600,10 +600,9 @@ def create_df_boot_SFS_scores(data_path, save_path, analysis, specification, fea
                 for k_feat in range(0, len(initial_feature_list)):
                     print('add feat', initial_feature_list[k_feat])
                     df_boot_subj_k['k_' + str(k_feat + 1)] = initial_feature_list[k_feat]
-                df_boot = df_boot.append(df_boot_subj_k)
-    if not os.path.exists(os.path.join(save_path, analysis, specification, feature)):
-        os.makedirs(os.path.join(save_path, analysis, specification, feature))
-    df_boot.to_csv(os.path.join(save_path, analysis, specification, feature,'df_boot_SFS.csv'), header = True, index = False, decimal=',', sep = ';')
+                df_boot = pd.concat((df_boot, df_boot_subj_k))
+    os.makedirs(os.path.join(save_path), exist_ok=True)
+    df_boot.to_csv(os.path.join(save_path, 'df_boot_SFS.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_boot
 
 
@@ -622,8 +621,8 @@ def create_df_coefficients(data_path, save_path, analysis, specification, featur
                                                  'coef': coef['coefficients'][con].flatten(),
                                                  'features': coef['features']})
                     df_coef = pd.concat((df_coef, df_coef_subj))
-    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
-    df_coef.to_csv(os.path.join(save_path, analysis, specification, feature,'df_coef.csv'), header = True, index = False, decimal=',', sep = ';')
+    os.makedirs(os.path.join(save_path, analysis, feature), exist_ok=True)
+    df_coef.to_csv(os.path.join(save_path, analysis, feature,'df_coef.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_coef
 
 def create_df_patterns(data_path, save_path, analysis, specification, feature, contrast):
@@ -646,8 +645,8 @@ def create_df_patterns(data_path, save_path, analysis, specification, feature, c
                                                  'features': patterns['features']})
                     df_patterns = pd.concat((df_patterns, df_patterns_subj))
 
-    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
-    df_patterns.to_csv(os.path.join(save_path, analysis, specification, feature,'df_patterns.csv'), header = True, index = False, decimal=',', sep = ';')
+    os.makedirs(os.path.join(save_path, analysis, feature), exist_ok=True)
+    df_patterns.to_csv(os.path.join(save_path, analysis, feature,'df_patterns.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_patterns
 
 
@@ -662,13 +661,9 @@ def count_features(df_best_k, best_k, roi):
         "roi_hbr_hbo_val": {}  # Combination of ROI, hbr/hbo and val feat
     }
 
-    actual_channels = {
-        "ldlPFC": [],
-        "rdlPFC": [],
-        "mid-dlPFC": [],
-        "premotor": [],
-        "others" : [],
-    }
+    actual_channels = {'others': []}
+    for r in roi.keys():
+        actual_channels[r] = []
 
     for subj in [s for s in df_best_k['subj'].unique() if s != 'average']:
         df_sub = df_best_k.loc[df_best_k["subj"] == subj]
@@ -733,10 +728,12 @@ def count_features(df_best_k, best_k, roi):
     channels = [f.split(' ')[0] for f in sorted(list(counts['raw_feat'].keys()))]
     chromosome = [f.split(' ')[1] for f in sorted(list(counts['raw_feat'].keys()))]
     feat = [f.split(' ')[2] for f in sorted(list(counts['raw_feat'].keys()))]
+    keys = sorted(list(counts['raw_feat'].keys()))
     for i, f in enumerate(feat):
         if chromosome[i] + '_' + feat[i] not in list(counts_ch_per_feat_chroma.keys()):
-            counts_ch_per_feat_chroma[chromosome[i] + '_' + feat[i]] = [channels[i]]
+            counts_ch_per_feat_chroma[chromosome[i] + '_' + feat[i]] = [channels[i]] * counts['raw_feat'][keys[i]]
         else:
-            counts_ch_per_feat_chroma[chromosome[i] + '_' + feat[i]].append(channels[i])
+            for c in [channels[i]] * counts['raw_feat'][keys[i]]:
+                counts_ch_per_feat_chroma[chromosome[i] + '_' + feat[i]].append(c)
 
     return counts, actual_channels, counts_ch_per_feat_chroma
