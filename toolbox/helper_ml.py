@@ -23,10 +23,6 @@ from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 from mlxtend.plotting import plot_sequential_feature_selection as plot_sfs
 
 from xgboost import XGBClassifier
-
-# EEGNet-specific imports
-from collections import Counter
-
 import matplotlib.pyplot as plt
 from scipy.io import savemat
 import warnings
@@ -212,25 +208,25 @@ def get_dict_classifier_GridSearch(SEED, n_jobs):
     clf_names = ['LDA', 'LR', 'SVM', 'xgBoost', 'Dummy']
     return dict(zip(clf_names, classifiers))
 def get_pipeline_settings():
-    pipeline_settings = {'linear_model_k_best': {'group_interval': 'epoch',
-                                               'contrast':  ['HighNeg','LowNeg', 'HighPos','LowPos'],
-                                               'fe': ["max", "peak2peak", "average"],
-                                               'hrf': 'hbo+hbr',
-                                               'CV_outer': {'splits': 5, 'repeats': 20},
-                                               'CV_inner': {'splits': 5, 'shuffle': True},
-                                               'scoring': 'f1_weighted',
-                                               'SFS': {'k_features': 20, 'sfs_forward': True, 'perform': True},
-                                               'sSFS': {'n_features_to_select': 'auto', 'direction': 'forward', 'scoring': 'f1_weighted', 'n_jobs':7},
-                                               'SEED': 42, 'n_jobs': 7},
-                        'topographical_analysis_interaction_hbo':{'group_interval' : 'epoch',
+    pipeline_settings = { 'topographical_analysis_interaction_hbo':{'group_interval' : 'epoch',
                                         'contrast': ['HighNeg','LowNeg', 'HighPos',  'LowPos'],
                                         'fe': ["max", "peak2peak", "average"],
                                         'hrf': 'hbo',
                                         'CV_outer': {'splits': 5, 'repeats': 20},
                                         'CV_inner': {'splits': 5, 'shuffle': True},
                                         'scoring':  'f1_weighted',
-                                        'SFS': {'k_features': 10, 'sfs_forward': True, 'perform': True},
+                                        'SFS': {'k_features': (5,20),  'sfs_forward': True, 'perform': True},
                                         'SEED' : 42, 'n_jobs' : 4},
+                          'linear_model_k_best': {'group_interval': 'epoch',
+                                               'contrast':  ['HighNeg','LowNeg', 'HighPos','LowPos'],
+                                               'fe': ["max", "peak2peak", "average"],
+                                               'hrf': 'hbo+hbr',
+                                               'CV_outer': {'splits': 5, 'repeats': 20},
+                                               'CV_inner': {'splits': 5, 'shuffle': True},
+                                               'scoring': 'f1_weighted',
+                                               'SFS': {'k_features': (5,20), 'sfs_forward': True, 'perform': True},
+                                               'sSFS': {'n_features_to_select': 'auto', 'direction': 'forward', 'scoring': 'f1_weighted', 'n_jobs':7},
+                                               'SEED': 42, 'n_jobs': 7},
                         'topographical_analysis_interaction_hbr': {'group_interval': 'epoch',
                                       'contrast': ['HighNeg', 'LowNeg', 'HighPos', 'LowPos'],
                                       'fe': ["max", "peak2peak", "average"],
@@ -238,7 +234,7 @@ def get_pipeline_settings():
                                       'CV_outer': {'splits': 5, 'repeats': 20},
                                       'CV_inner': {'splits': 5, 'shuffle': True},
                                       'scoring': 'f1_weighted',
-                                      'SFS': {'k_features': 10, 'sfs_forward': True, 'perform': True},
+                                      'SFS': {'k_features': (5,20), 'sfs_forward': True, 'perform': True},
                                       'SEED': 42, 'n_jobs': 4}}
     return pipeline_settings
 def get_roi_integer(roi):
@@ -558,28 +554,27 @@ def single_trial_decoding_linear_models_get_patterns(subj, X, y, classifier, pip
 def create_df_boot_scores(data_path, save_path, analysis, specification, feature, score_list, contrast):
     df_boot = pd.DataFrame()
     for classifier in os.listdir(os.path.join(data_path, analysis, specification, feature)):
-        subj_list = ['sub-0' + str(numb) if len(str(numb)) == 1 else 'sub-' + str(numb) for numb in range(5, 15)]
-        for subj in subj_list:
+        for subj in range(2, 20):
             print(subj)
             for score_file in score_list:
-                scores = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, score_file[0] + '_' + subj + '_' + contrast + score_file[1]))
+                scores = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, score_file[0] + '_' + str(subj) + '_' + contrast + score_file[1]))
                 test = scores['scores'][0][0][2]
                 train = scores['scores'][0][0][3]
                 df_boot_subj = pd.DataFrame({'subj': len(test.flatten()) * [subj], 'classifier': len(test.flatten()) * [classifier + score_file[2]],
                                              'train': train.flatten(),'test': test.flatten(), 'fold': list(range(1, len(test.flatten()) + 1))})
-                df_boot = df_boot.append(df_boot_subj)
-    if not os.path.exists(os.path.join(save_path, analysis, specification, feature)):
-        os.makedirs(os.path.join(save_path, analysis, specification, feature))
+                df_boot = pd.concat((df_boot, df_boot_subj))
+    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
     df_boot.to_csv(os.path.join(save_path, analysis, specification, feature,'df_boot.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_boot
 
 def create_df_boot_SFS_scores(data_path, save_path, analysis, specification, feature, score_file, contrast):
     df_boot = pd.DataFrame()
     for classifier in os.listdir(os.path.join(data_path, analysis, specification, feature)):
-        subj_list = ['sub-0' + str(numb) if len(str(numb)) == 1 else 'sub-' + str(numb) for numb in range(5, 15)]
-        for subj in subj_list:
-            print(subj)
-            scores = pd.read_csv(os.path.join(data_path, analysis, specification, feature, classifier, score_file[0] + '_' + subj + '_' + contrast + score_file[1]), sep=';', decimal = '.', header = 0)
+        for subj in range(2, 20):
+            list_results = [s for s in os.listdir(os.path.join(data_path, analysis, specification, feature, classifier)) if str(subj) == s.split(score_file[0])[-1].strip('_').split('_')[0]]
+            if len(list_results) < 1:
+                print(subj)
+            scores = pd.read_csv(os.path.join(data_path, analysis, specification, feature, classifier, score_file[0] + '_' + str(subj) + '_' + contrast + score_file[1]), sep=';', decimal = ',', header = 0)
             initial_feature_list = []
             for k in range(0, len(scores)):
                 print('initial_feature_list:', initial_feature_list)
@@ -615,41 +610,43 @@ def create_df_boot_SFS_scores(data_path, save_path, analysis, specification, fea
 def create_df_coefficients(data_path, save_path, analysis, specification, feature, contrast):
     df_coef = pd.DataFrame()
     for classifier in [cl for cl in os.listdir(os.path.join(data_path, analysis, specification, feature)) if not '.csv' in cl]:
-        subj_list = ['sub-0' + str(numb) if len(str(numb)) == 1 else 'sub-' + str(numb) for numb in range(5, 15)]
-        for subj in subj_list:
+        for subj in range(2, 20):
             print(subj)
             if classifier != 'Dummy':
-                coef = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, 'coefficients_without_SFS_' + subj + '_' + contrast + '.mat'))
-                df_coef_subj = pd.DataFrame({'subj': len(coef['coefficients'][0].flatten()) * [subj],
-                                             'classifier': len(coef['coefficients'][0].flatten()) * [classifier],
-                                             'coef': coef['coefficients'][0].flatten(),
-                                             'features': coef['features']})
-                df_coef = df_coef.append(df_coef_subj)
-    if not os.path.exists(os.path.join(save_path, analysis, specification, feature)):
-        os.makedirs(os.path.join(save_path, analysis, specification, feature))
+                coef = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, 'coefficients_without_SFS_' + str(subj) + '_' + contrast + '.mat'))
+                for con in range(0, coef['coefficients'].shape[0]):
+                    con_name = contrast.split('_vs_')[con]
+                    df_coef_subj = pd.DataFrame({'subj': len(coef['coefficients'][con].flatten()) * [subj],
+                                                 'con' : len(coef['coefficients'][con].flatten()) * [con_name],
+                                                 'classifier': len(coef['coefficients'][con].flatten()) * [classifier],
+                                                 'coef': coef['coefficients'][con].flatten(),
+                                                 'features': coef['features']})
+                    df_coef = pd.concat((df_coef, df_coef_subj))
+    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
     df_coef.to_csv(os.path.join(save_path, analysis, specification, feature,'df_coef.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_coef
 
 def create_df_patterns(data_path, save_path, analysis, specification, feature, contrast):
     df_patterns = pd.DataFrame()
-    for classifier in os.listdir(os.path.join(data_path, analysis, specification, feature)):
-        subj_list = ['sub-0' + str(numb) if len(str(numb)) == 1 else 'sub-' + str(numb) for numb in range(5, 15)]
-        for subj in subj_list:
+    for classifier in [cl for cl in os.listdir(os.path.join(data_path, analysis, specification, feature)) if not '.csv' in cl]:
+        for subj in range(2, 20):
             print(subj)
             if classifier != 'Dummy':
                 try:
-                    patterns = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, 'patterns_without_SFS_' + subj + '_' + contrast + '.mat'))
+                    patterns = loadmat(os.path.join(data_path, analysis, specification, feature, classifier, 'patterns_without_SFS_' + str(subj) + '_' + contrast + '.mat'))
                 except:
                     print('No File for ', subj, 'analysis', os.path.split(data_path)[-1])
                     continue
+                for con in range(0, patterns['patterns'].shape[0]):
+                    con_name = contrast.split('_vs_')[con]
+                    df_patterns_subj = pd.DataFrame({'subj': len(patterns['patterns'][con].flatten()) * [subj],
+                                                 'con' : len(patterns['patterns'][con].flatten()) * [con_name],
+                                                 'classifier': len(patterns['patterns'][con].flatten()) * [classifier],
+                                                 'patterns': patterns['patterns'][con].flatten(),
+                                                 'features': patterns['features']})
+                    df_patterns = pd.concat((df_patterns, df_patterns_subj))
 
-                df_patterns_subj = pd.DataFrame({'subj': len(patterns['patterns'][0].flatten()) * [subj],
-                                             'classifier': len(patterns['patterns'][0].flatten()) * [classifier],
-                                             'patterns': patterns['patterns'][0].flatten(),
-                                             'features': patterns['features']})
-                df_patterns = df_patterns.append(df_patterns_subj)
-    if not os.path.exists(os.path.join(save_path, analysis, specification, feature)):
-        os.makedirs(os.path.join(save_path, analysis, specification, feature))
+    os.makedirs(os.path.join(save_path, analysis, specification, feature), exist_ok=True)
     df_patterns.to_csv(os.path.join(save_path, analysis, specification, feature,'df_patterns.csv'), header = True, index = False, decimal=',', sep = ';')
     return df_patterns
 

@@ -32,7 +32,7 @@ df_epochs = pd.read_csv(os.path.join(config_analysis.project_directory, 'derivat
 subj_list = sorted(df_epochs['ID'].unique())
 ROI = 'full'
 classifier_list = ['LDA', 'Dummy']
-for feature_selection in  helper_ml.get_pipeline_settings().keys():
+for feature_selection in helper_ml.get_pipeline_settings().keys():
     print(ROI, feature_selection)
     pipeline_settings = helper_ml.get_pipeline_settings()[feature_selection]
     np.random.seed(pipeline_settings['SEED'])
@@ -59,6 +59,7 @@ for feature_selection in  helper_ml.get_pipeline_settings().keys():
                 os.makedirs("{}".format(save), exist_ok=True)
 
                 for isub, subj in enumerate(subj_list):
+
                     X = df_features.loc[df_features['ID'] == subj, df_features.columns != 'ID']
                     y = labels[X.index]
                     if len(pipeline_settings['contrast']) == 2:

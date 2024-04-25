@@ -22,8 +22,8 @@ import matplotlib as mpl
 import seaborn as sns
 from natsort import natsort_keygen
 import statsmodels.formula.api as smf
-os.chdir(os.path.join('..', os.getcwd()))
-from toolbox import (helper_ml, helper_plot)
+os.chdir('..')
+from toolbox import (helper_ml, helper_plot, config_analysis)
 
 np.random.seed(42)
 
@@ -40,16 +40,15 @@ fig_format = ['svg', 'png']
 plot_coefficients = True
 plot_patterns = True
 classifier_of_interest = 'LDA'
-bids_directory = os.path.join("R:/NirAcademy_81024520/!Ergebnisse/03_NIRCADEMY_1", "04_nircademy_bids")
+contrast = 'HighNeg_vs_LowNeg_vs_HighPos_vs_LowPos'
+epoch_length = 10
+include_silence = 'include_silence' #'_include_silence'
+analysis_settings = 'fNIRS_decoding_epoch_length_{}_{}'.format(epoch_length, include_silence)
+data_path = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_decoding', analysis_settings)
+save_path = os.path.join(data_path, 'plots')
+os.makedirs(save_path, exist_ok=True)
 
-group_variable = 'block'
-contrast = 'OneBack_LW_vs_ThreeBack_HW'
-
-data_path = os.path.join(bids_directory, 'derivatives', 'fNIRS', 'single_trial_decoding', group_variable)
-save_path = os.path.join(bids_directory, 'derivatives', 'fNIRS', 'single_trial_decoding', group_variable, 'plots')
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
-exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(bids_directory, 'derivatives', 'fnirs','configurations',  "exemplary_raw.fif")).load_data()
+exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc',analysis_settings, "exemplary_raw.fif")).load_data()
 exemplary_raw_haemo.info['bads'] = []
 mne.datasets.fetch_fsaverage()
 analysis = 'linear_model_k_20'
