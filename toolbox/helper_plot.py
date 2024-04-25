@@ -4,15 +4,19 @@
 import os
 import pandas as pd
 import numpy as np
+import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.lines import Line2D
-
+import mne_nirs
+import mne
+mne.viz.set_3d_backend("pyvista")  # pyvistaqt
 
 from toolbox.helper_bootstrap import bootstrapping
 from toolbox import config_analysis
 mpl.rc('font',family='Times New Roman', weight = 'bold')
-
+os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = r'~qgis directory\apps\Qt5\plugins'
+os.environ['PATH'] += r';~qgis directory\apps\qgis\bin;~qgis directory\apps\Qt5\bin'
 # =============================================================================
 # Function to Visualise Bootstrapped Means and CIs
 # =============================================================================
@@ -315,3 +319,87 @@ def plot_single_trial_bootstrapped_boxplots(lst_groups, df_data, col_group, subj
     fig.tight_layout(rect=[0.02, 0, 1, 0.985])
     plt.show()
     return fig, df_full
+
+def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_coefficients, exemplary_raw_haemo, save_name, save):
+    for classifier in df['classifier'].unique():
+        for con in df['con'].unique():
+            df_weights = df.loc[
+                (df['classifier'] == classifier) & (df['con'] == con), df.columns != 'classifier']
+            df_weights['Source'] = [int(ss.split('_')[0]) for ss in
+                                            [s.split('S')[1] for s in df_weights.features]]
+            df_weights['Detector'] = [int(dd.split(' ')[0]) for dd in
+                                              [d.split('D')[1] for d in df_weights.features]]
+
+            con_summary = pd.DataFrame(
+                {'ID': df_weights.subj.values,
+                 'Contrast': [con] * len(df_weights.subj.values),
+                 'ch_name': [ch.rsplit(chroma, 1)[0] + chroma for ch in df_weights.features],
+                 'Chroma': [chroma] * len(df_weights.subj.values),
+                 'coef': df_weights[weights_col].values})
+            con_model = smf.mixedlm("coef ~ -1 + ch_name:Chroma", con_summary, groups=con_summary["ID"]).fit(
+                method='nm')
+            df_con_model = mne_nirs.statistics.statsmodels_to_results(con_model)
+            for subj in subj_list:
+                if subj in df['subj'].unique().tolist():
+                    coefficients = df_weights.loc[(df_weights['subj'] == subj)].groupby(['features']).mean(
+                        numeric_only=True).reset_index()
+                    colormap_key = chroma
+                elif subj == 'average':
+                    coefficients = df_weights.groupby(['features']).mean(
+                        numeric_only=True).reset_index()
+                    colormap_key = chroma
+                elif subj == 'standard_error':
+                    coefficients = df_weights.groupby(['features']).mean(numeric_only=True).reset_index()
+                    std = df_weights.loc[:, ['features', 'coef']].groupby(['features']).std(
+                        numeric_only=True).values
+                    coefficients['coef'] = std / np.sqrt(len(df['subj'].unique().tolist()))
+                    colormap_key = subj
+                elif subj == 'weighted_average':
+                    coefficients = df_weights.groupby(['features']).mean(
+                        numeric_only=True).reset_index()
+                    std = df_weights.loc[:, ['features', 'coef']].groupby(['features']).std(
+                        numeric_only=True).values
+                    coefficients['SE'] = (std / np.sqrt(len(df['subj'].unique().tolist())))
+                    # Calculate weighted coefficients
+                    coefficients['coef'] = coefficients['coef'] / coefficients['SE']
+                    # Rescale weighted coefficients to be between -1 and 1
+                    max_weighted_coef = coefficients['coef'].abs().max()
+                    coefficients['coef'] = coefficients['coef'] / max_weighted_coef
+                    colormap_key = chroma
+                print(subj, len(coefficients), len(df_con_model['Coef.'].values))
+                assert len(coefficients) == len(df_con_model['Coef.'].values)
+                df_con_model['Coef.'] = coefficients['coef'].values
+                df_con_model['Source'] = coefficients['Source'].values
+                df_con_model['Detector'] = coefficients['Detector'].values
+                df_con_model_sorted = df_con_model.sort_values(by=['Source', 'Detector'],
+                                                               ascending=[True, True]).copy()
+                print(list(df_con_model_sorted["ch_name"].values))
+                mne.datasets.fetch_fsaverage()
+                # Cortical Surface Projections for Contrasts
+                for view in ['rostral', 'lateral']:
+                    # view = 'lateral'
+                    if view == 'lateral':
+                        hemis = ['lh', 'rh']
+                        colorbar = False
+                    else:
+                        hemis = ['both']
+                        colorbar = True
+                    for hemi in hemis:
+                        # hemi = 'both'
+                        brain = mne_nirs.visualisation.plot_glm_surface_projection(
+                            exemplary_raw_haemo.copy().pick(picks=chroma),
+                            statsmodel_df=df_con_model_sorted, picks=chroma,
+                            view=view, hemi=hemi, clim={'kind': 'value', 'lims': lims_coefficients},
+                            colormap=colormaps[colormap_key], colorbar=colorbar, size=(800, 700))
+                        if subj != 'average':
+                            save_brain_plot = os.path.join(save, save_name, 'subject_level', con)
+                            os.makedirs(save_brain_plot, exist_ok=True)
+                            brain.save_image(
+                                "{}/sub-{}_{}_{}.png".format(save_brain_plot, str(subj), view, hemi))
+                            brain.close()
+                        else:
+                            save_brain_plot = os.path.join(save, save_name, subj, con)
+                            os.makedirs(save_brain_plot, exist_ok=True)
+                            brain.save_image(
+                                "{}/{}-{}_{}.png".format(save_brain_plot, str(subj), view, hemi))
+                            brain.close()
