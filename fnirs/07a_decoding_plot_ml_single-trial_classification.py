@@ -57,11 +57,11 @@ for analysis in helper_ml.get_pipeline_settings().keys():
         os.makedirs(save, exist_ok=True)
         chroma = specification[-3:]
         if chroma == 'hbo':
-            colormap = matplotlib.cm.bwr
-            color_per_subj = '#f194b8'
-            average_color = '#a96881'
-            list_color_classifier = ['#f194b8', '#fcc9b5', '#eee8aa']
-            list_color_classifier_averaged = ['#a96881', '#b08d7f', '#a7a277']
+            colormap = matplotlib.cm.PuOr_r
+            color_per_subj = '#eee8aa'
+            average_color = '#a7a277'
+            list_color_classifier = ['#eee8aa', '#fcc9b5', '#f194b8']
+            list_color_classifier_averaged = [ '#a7a277', '#b08d7f','#a96881']
             lims_coefficients = (-0.5, 0, 0.5)
             lims_patterns  = (-0.2, 0, 0.2)
         elif chroma == 'hbr':
