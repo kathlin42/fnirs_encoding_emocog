@@ -18,7 +18,7 @@ import matplotlib as mpl
 import statsmodels.formula.api as smf
 os.chdir('..')
 from toolbox import (helper_ml, helper_plot, config_analysis)
-
+import pickle
 np.random.seed(42)
 
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = r'~qgis directory\apps\Qt5\plugins'
@@ -138,8 +138,13 @@ plt.clf()
 # =============================================================================
 # Analyze Features
 # =============================================================================
-roi, roi_integer, channel_mappings = helper_ml.get_roi_ch_mappings(project = 'mikado')
-counts, actual_channels, counts_ch_per_feat_chroma = helper_ml.count_features(df_best_k, best_k, roi)
+try:
+    roi, roi_integer, channel_mappings = helper_ml.get_roi_ch_mappings(project = 'mikado')
+    counts, actual_channels, counts_ch_per_feat_chroma = helper_ml.count_features(df_best_k, best_k, roi)
+except:
+    os.chdir('fnirs_encoding_emocog')
+    roi, roi_integer, channel_mappings = helper_ml.get_roi_ch_mappings(project='mikado')
+    counts, actual_channels, counts_ch_per_feat_chroma = helper_ml.count_features(df_best_k, best_k, roi)
 
 #%%
 #Plot Figure
@@ -179,9 +184,9 @@ ax.yaxis.label.set_size(fsize)
 ax.tick_params(axis='both', which='major', labelsize=(fsize))
 ax.set_xticklabels(x_labels, rotation=45, ha= 'right', fontsize = fsize - 4 )
 ax.legend(color_lines_legend, legend_names, loc='best', facecolor='white', fontsize='x-large', ncol=2)
-fig.suptitle('Feature Analysis of the LDA with SFS (k={})'.format(best_k), fontsize= fsize + 3, fontweight='bold')
-fig.supxlabel('Features per Channels clustered in Regions of Interest', fontsize=fsize, fontweight='bold')
-fig.supylabel('Count across Participants', fontsize=fsize, fontweight='bold')
+fig.suptitle('Selected Features for Four-Class LDA Decoding (k={}; Mean F1=65.10 95%CI [64.01, 66.02])'.format(best_k), fontsize= fsize + 3, fontweight='bold')
+fig.supxlabel('Features clustered in Regions of Interest', fontsize=fsize-2, fontweight='bold')
+fig.supylabel('Count across Participants', fontsize=fsize-2, fontweight='bold')
 fig.tight_layout()
 plt.show()
 for end in fig_format:
@@ -194,22 +199,23 @@ plt.clf()
 # =============================================================================
 #create df_filler
 max_n_ch = 0
+numb_ch = 0
 for key in counts_ch_per_feat_chroma.keys():
     chroma = key.split('_')[0]
     feature = key.split('_')[1]
-    if chroma == 'hbo':
-        print(feature.upper())
-
     chs = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[0]
     cts = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[1]
     for cu in cts:
-        print(cu)
         if cu > max_n_ch:
             max_n_ch = cu
+    if len(chs) > numb_ch:
+        numb_ch = len(chs)
 
+channel_masks = {}
 colormap = {'hbo' :  mpl.colors.LinearSegmentedColormap.from_list("", ["white", '#4A236F']), 'hbr':mpl.colors.LinearSegmentedColormap.from_list("", ["white",  '#060C7F'])}
 lims_coefficients = (0, max_n_ch / 2, max_n_ch)
 for key in counts_ch_per_feat_chroma.keys():
+    channel_masks[key] = {}
     chroma = key.split('_')[0]
     feature = key.split('_')[1]
     ch_names = [ch for ch in exemplary_raw_haemo.ch_names if chroma in ch]
@@ -229,6 +235,9 @@ for key in counts_ch_per_feat_chroma.keys():
 
     chs = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[0]
     cts = np.unique(np.array(counts_ch_per_feat_chroma[key]), return_counts=True)[1]
+
+    channel_masks[key]['channels'] = chs
+    channel_masks[key]['counts'] = cts
     for ch, count in zip(chs, cts):
         print(ch, 'Count:', count)
         df_con_model.loc[df_con_model['ch_name'] == ch + ' ' + chroma, 'Coef.'] = count
@@ -256,6 +265,8 @@ for key in counts_ch_per_feat_chroma.keys():
             brain.save_image(
                 "{}/{}_{}_{}_{}.png".format(save, save_name, contrast, view, hemi))
             brain.close()
+with open(os.path.join(save, 'channel_masks.pickle'), 'wb') as handle:
+    pickle.dump(channel_masks, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 for chroma in colormap.keys():
     fig, ax = plt.subplots(1, 1, figsize=(1, 6))

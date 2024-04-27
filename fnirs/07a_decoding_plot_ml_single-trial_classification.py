@@ -25,7 +25,7 @@ np.random.seed(42)
 # Load Data
 ###############################################################################
 fig_format = ['svg', 'png']
-plot_coefficients = False
+plot_coefficients = True
 plot_patterns = False
 classifier_of_interest = 'LDA'
 contrast = 'HighNeg_vs_LowNeg_vs_HighPos_vs_LowPos'
@@ -39,7 +39,9 @@ os.makedirs(save_path, exist_ok=True)
 exemplary_raw_haemo = mne.io.read_raw_fif(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc',analysis_settings, "exemplary_raw.fif")).load_data()
 exemplary_raw_haemo.info['bads'] = []
 mne.datasets.fetch_fsaverage()
-colormaps = {'hbr': matplotlib.cm.PiYG_r, 'hbo': matplotlib.cm.PuOr_r, 'standard_error': matplotlib.cm.Reds}
+colormaps = {'hbr': matplotlib.cm.RdBu_r, 'subj_hbr' : matplotlib.cm.PiYG, 'hbo': matplotlib.cm.RdBu_r, 'subj_hbo' : matplotlib.cm.PiYG_r, 'standard_error': matplotlib.cm.Reds}
+subj_list_plotting = ['weighted_average'] #['standard_error', 7, 16, 'weighted_average', 'average']
+features_of_interest = ['max LDA']
 df_empirical_chance_level = pd.DataFrame()
 for analysis in helper_ml.get_pipeline_settings().keys():
     if 'topographical' not in analysis:
@@ -59,14 +61,14 @@ for analysis in helper_ml.get_pipeline_settings().keys():
             list_color_classifier = ['#eee8aa', '#fcc9b5', '#f194b8']
             list_color_classifier_averaged = [ '#a7a277', '#b08d7f','#a96881']
             lims_coefficients = (-0.5, 0, 0.5)
-            lims_patterns  = (-0.2, 0, 0.2)
+            lims_patterns  = (-0.5, 0, 0.5)
         elif chroma == 'hbr':
             color_per_subj = '#00cee2'
             average_color = '#00b4c5'
             list_color_classifier = ['#00cee2', '#0079f2', '#00df92']
             list_color_classifier_averaged = [ '#00b4c5', '#0073e6', '#00bf7d']
             lims_coefficients = (-0.5, 0, 0.5)
-            lims_patterns = (-0.2, 0, 0.2)
+            lims_patterns = (-0.5, 0, 0.5)
         df_full = pd.DataFrame()
         list_features = [feature for feature in os.listdir(os.path.join(data_path, analysis, specification)) if '.' not in feature]
         for feature in list_features:
@@ -110,7 +112,6 @@ for analysis in helper_ml.get_pipeline_settings().keys():
 
         df_long = df_wide.melt(id_vars=['subj', 'fold'])
         df_long = df_long.loc[~df_long['variable'].isin([dummy for dummy in list(df_long['variable'].unique()) if 'Dummy' in dummy])]
-        df_long = df_long.loc[~df_long['variable'].isin([LR for LR in list(df_long['variable'].unique()) if 'LR' in LR])]
         # get overall empirical chance level
         empirical_chance_level = helper_plot.bootstrapping(
             df_full.loc[df_full['subj'] != 'average', 'Dummy'].values,
@@ -189,8 +190,6 @@ for analysis in helper_ml.get_pipeline_settings().keys():
 
         # uncomment for single plots per feature
         for feature in [feat for feat in sorted(df_long['variable'].unique()) if classifier_of_interest in feat]:
-            df_feat = df_long.loc[df_long['variable'] == feature]
-            df_feat = df_feat.rename(columns= {'value': feature.split(' ')[0]})
             if plot_coefficients:
                 # =============================================================================
                 # Plot Coefficients averaged over Participants
@@ -203,8 +202,8 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                     df_coef = helper_ml.create_df_coefficients(data_path, save_path, analysis, specification, feature.split(' ')[0],
                                                                contrast)
 
-                helper_plot.plot_weights_3d_brain(df_coef, 'coef', chroma,  ['average', 'standard_error', 'weighted_average'],
-                                                  colormaps, lims_coefficients, exemplary_raw_haemo, feature.upper().replace(' ', '_'), save)
+                helper_plot.plot_weights_3d_brain(df_coef, 'coef', chroma,  subj_list_plotting,
+                                                  colormaps, lims_coefficients, exemplary_raw_haemo, feature.upper().replace(' ', '_'), save, True, False)
             if plot_patterns:
                 # =============================================================================
                 # Plot Patterns averaged over Participants
@@ -216,8 +215,6 @@ for analysis in helper_ml.get_pipeline_settings().keys():
                 else:
                     df_patterns = helper_ml.create_df_patterns(data_path, save_path, analysis, specification, feature.split(' ')[0], contrast)
 
-                helper_plot.plot_weights_3d_brain(df_patterns, 'patterns', chroma, ['average', 'standard_error',
-                                                                                       'weighted_average'],
-                                                  colormaps, lims_patterns, exemplary_raw_haemo, 'Patterns_' + feature.upper().replace(' ', '_'), save)
-
+                helper_plot.plot_weights_3d_brain(df_patterns, 'patterns', chroma, subj_list_plotting,
+                                                  colormaps, lims_patterns, exemplary_raw_haemo, 'Patterns_' + feature.upper().replace(' ', '_'), save, False, False)
 df_empirical_chance_level.to_csv(os.path.join(save_path, 'df_empirical_chance_level.csv'), header = True, index = False, decimal=',', sep = ';')

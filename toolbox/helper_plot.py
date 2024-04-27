@@ -320,7 +320,7 @@ def plot_single_trial_bootstrapped_boxplots(lst_groups, df_data, col_group, subj
     plt.show()
     return fig, df_full
 
-def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_coefficients, exemplary_raw_haemo, save_name, save):
+def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_coefficients, exemplary_raw_haemo, save_name, save, rescaled, mask):
     for classifier in df['classifier'].unique():
         for con in df['con'].unique():
             df_weights = df.loc[
@@ -343,20 +343,41 @@ def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_co
                 if subj in df['subj'].unique().tolist():
                     coefficients = df_weights.loc[(df_weights['subj'] == subj)].groupby(['features']).mean(
                         numeric_only=True).reset_index()
-                    colormap_key = chroma
-                    lims = lims_coefficients
+                    colormap_key = 'subj_' + chroma
+                    # Rescale weighted coefficients to be between -1 and 1
+                    if rescaled:
+                        max_weighted_coef = coefficients[weights_col].abs().max()
+                        coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
+                        lims = (-1, 0, 1)
+                    else:
+                        lims = lims_coefficients
+
                 elif subj == 'average':
                     coefficients = df_weights.groupby(['features']).mean(
                         numeric_only=True).reset_index()
+
                     colormap_key = chroma
-                    lims = lims_coefficients
+                    if rescaled:
+                        # Rescale weighted coefficients to be between -1 and 1
+                        max_weighted_coef = coefficients[weights_col].abs().max()
+                        coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
+                        lims = (-1, 0, 1)
+                    else:
+                        lims = lims_coefficients
+
                 elif subj == 'standard_error':
                     coefficients = df_weights.groupby(['features']).mean(numeric_only=True).reset_index()
                     std = df_weights.loc[:, ['features', weights_col]].groupby(['features']).std(
                         numeric_only=True).values
                     coefficients[weights_col] = std / np.sqrt(len(df['subj'].unique().tolist()))
                     colormap_key = subj
-                    lims = (0, coefficients[weights_col].abs().max()/2, coefficients[weights_col].abs().max())
+                    if rescaled:
+                        # Rescale weighted coefficients to be between -1 and 1
+                        max_weighted_coef = coefficients[weights_col].abs().max()
+                        coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
+                        lims = (0, 0.1, 0.5)
+                    else:
+                        lims = lims_coefficients
 
                 elif subj == 'weighted_average':
                     coefficients = df_weights.groupby(['features']).mean(
@@ -366,17 +387,24 @@ def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_co
                     coefficients['SE'] = (std / np.sqrt(len(df['subj'].unique().tolist())))
                     # Calculate weighted coefficients
                     coefficients[weights_col] = coefficients[weights_col] / coefficients['SE']
-                    # Rescale weighted coefficients to be between -1 and 1
-                    max_weighted_coef = coefficients[weights_col].abs().max()
-                    coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
+                    if rescaled:
+                        # Rescale weighted coefficients to be between -1 and 1
+                        max_weighted_coef = coefficients[weights_col].abs().max()
+                        coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
+                        lims = (-1, 0, 1)
+                    else:
+                        lims = lims_coefficients
                     colormap_key = chroma
-                    lims = lims_coefficients
+
                 if ('pattern' in weights_col) and (subj != 'weighted_average'):
                     max_weighted_coef = coefficients[weights_col].abs().max()
                     coefficients[weights_col] = coefficients[weights_col] / max_weighted_coef
                     lims = lims_coefficients
+                if mask != False:
+                    coefficients.loc[~coefficients['features'].isin(mask), weights_col] = 0
                 print(subj, len(coefficients), len(df_con_model['Coef.'].values))
                 assert len(coefficients) == len(df_con_model['Coef.'].values)
+
                 df_con_model['Coef.'] = coefficients[weights_col].values
                 df_con_model['Source'] = coefficients['Source'].values
                 df_con_model['Detector'] = coefficients['Detector'].values
@@ -402,13 +430,21 @@ def plot_weights_3d_brain(df, weights_col, chroma, subj_list, colormaps, lims_co
                             view=view, hemi=hemi, clim={'kind': 'value', 'lims': lims},
                             colormap=colormaps[colormap_key], colorbar=colorbar, size=(800, 700))
                         if subj in df['subj'].unique().tolist():
-                            save_brain_plot = os.path.join(save, save_name, 'subject_level', con)
+                            if rescaled:
+                                save_brain_plot = os.path.join(save, save_name + '_rescaled', 'subject_level', con)
+                            else:
+                                save_brain_plot = os.path.join(save, save_name, 'subject_level', con)
+
                             os.makedirs(save_brain_plot, exist_ok=True)
                             brain.save_image(
                                 "{}/sub-{}_{}_{}.png".format(save_brain_plot, str(subj), view, hemi))
                             brain.close()
                         else:
-                            save_brain_plot = os.path.join(save, save_name, subj, con)
+                            if rescaled:
+                                save_brain_plot = os.path.join(save, save_name + '_rescaled', subj, con)
+                            else:
+                                save_brain_plot = os.path.join(save, save_name, subj, con)
+
                             os.makedirs(save_brain_plot, exist_ok=True)
                             brain.save_image(
                                 "{}/{}-{}_{}.png".format(save_brain_plot, str(subj), view, hemi))

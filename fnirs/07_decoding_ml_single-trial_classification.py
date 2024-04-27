@@ -21,11 +21,7 @@ analysis_settings = 'fNIRS_decoding_epoch_length_{}_{}'.format(epoch_length, inc
 df_epochs = pd.read_csv(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings, 'df_epochs.csv'), decimal = ',', sep = ';', header = 0)
 save_directory = os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_decoding', analysis_settings)
 os.makedirs("{}".format(save_directory), exist_ok=True)
-###############################################################################
-# Load Data
-###############################################################################
-#Load epochs for all subjects
-df_epochs = pd.read_csv(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_preproc', analysis_settings, 'df_epochs.csv'), decimal = ',', sep = ';', header = 0)
+
 # =============================================================================
 # define necessary variables
 # =============================================================================
