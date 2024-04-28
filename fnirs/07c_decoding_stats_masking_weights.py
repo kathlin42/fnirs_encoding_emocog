@@ -86,8 +86,9 @@ results.to_csv(os.path.join(decoding_path, 'plots', 'bootstrapped_stats.csv'), s
 # define necessary variables
 # =============================================================================
 
-
 channel_masks = pd.read_pickle(os.path.join(decoding_path, 'plots', 'linear_model_k_best' + '_' + 'full_hbo+hbr', 'channel_masks.pickle'))[feature_of_interest]['channels']
+channel_masks = [ch + ' ' + feature_of_interest.replace('_', ' ') for ch in channel_masks]
+
 counts = pd.read_pickle(os.path.join(decoding_path, 'plots', 'linear_model_k_best' + '_' + 'full_hbo+hbr', 'channel_masks.pickle'))[feature_of_interest]['counts']
 ch_names = [ch for ch in exemplary_raw_haemo.ch_names if feature_of_interest.split('_')[0] in ch]
 
@@ -132,30 +133,18 @@ for view in ['rostral', 'lateral']:
             "{}/{}_{}_{}.png".format(os.path.join(decoding_path, 'plots', 'counting_' + feature_of_interest), contrast, view, hemi))
         brain.close()
 
-
-channel_masks = [ch + ' ' + feature_of_interest.replace('_', ' ') for ch in channel_masks]
-# Calculate similarity percentage
-mask_similarity = (len(set(channel_masks).intersection(set(sig_channels))) / len(channel_masks)) * 100
-sig_similarity = (len(set(channel_masks).intersection(set(sig_channels))) / len(sig_channels)) * 100
-print(f"Similarity relative to mask list: {mask_similarity:.2f}%")
-print(f"Similarity relative to sig list: {sig_similarity:.2f}%")
-
 #################################################################################
 
 df_coef = pd.read_csv(os.path.join(config_analysis.project_directory, 'derivatives', 'fnirs_decoding', analysis_settings, 'plots', 'topographical_analysis_interaction_' + feature_of_interest.split('_')[0], feature_of_interest.split('_')[1], 'df_coef.csv'),
                       header=0, decimal=',', sep=';')
+#strip of undesired white space
 df_coef['features'] = [f[:-1] if f[-1] == ' ' else f for f in df_coef['features']]
-set(df_coef['features'].unique()) - set(channel_masks)
-set(df_coef['features'].unique()) - set(channel_masks)
-
 subj_list_plotting = ['weighted_average']
 colormaps = {'hbr': matplotlib.cm.RdBu_r, 'subj_hbr' : matplotlib.cm.PiYG, 'hbo': matplotlib.cm.RdBu_r, 'subj_hbo' : matplotlib.cm.PiYG_r, 'standard_error': matplotlib.cm.Reds}
 for mask_name, mask in [ ('SFS_', channel_masks), ('bootstrapped_', sig_channels), ('no_', False),]: #,
-
     save = os.path.join(decoding_path, 'plots', mask_name + 'masked_' + feature_of_interest)
     os.makedirs(save, exist_ok=True)
     lims_coefficients = (-1, 0, 1)
     helper_plot.plot_weights_3d_brain(df_coef, 'coef', feature_of_interest.split('_')[0], subj_list_plotting,
                                   colormaps, lims_coefficients, exemplary_raw_haemo,
                                   feature_of_interest.split('_')[1].upper().replace(' ', '_'), save, rescaled=rescaled, mask = mask)
-
