@@ -300,7 +300,8 @@ def first_level_GLM_analysis(raw, event_dict, events, subj, save_directory):
     sci = mne.preprocessing.nirs.scalp_coupling_index(raw_od, l_freq=0.7, h_freq=1.5)
     bads = list(compress(raw_od.ch_names, sci < 0.5))
     raw_od.info['bads'] = bads
-
+    #Regression
+    #raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
     # Repairs temporal derivative distribution
     raw_od = mne.preprocessing.nirs.tddr(raw_od)
     raw_od.info['bads'] = raw_od.info['bads'] + list(compress(raw_od.ch_names, np.isnan(raw_od.get_data()[:, 0])))
